@@ -1,6 +1,10 @@
-__pycache__
+#Python
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.pdb
+*.pym
 *.pyt
+*.pyc.*
+*.pyo.*

@@ -61,7 +61,14 @@ def main():
     app.setApplicationName("CLARA")
 
     pet = MainWindow()
-    pet.move(200, 200)
+    
+    # bottom right corner
+    screen_geometry = app.primaryScreen().availableGeometry()
+    pet_geometry = pet.frameGeometry()
+    x = screen_geometry.width() - pet_geometry.width()
+    y = screen_geometry.height() - pet_geometry.height()
+    pet.move(x, y)
+
     pet.show()
 
     sys.exit(app.exec())
