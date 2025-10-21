@@ -121,6 +121,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._drag_pos = None
 
+        # Timer to ensure window stays on top
+        self.stay_on_top_timer = QtCore.QTimer(self)
+        self.stay_on_top_timer.timeout.connect(self.ensure_on_top)
+        self.stay_on_top_timer.start(1000)
+
+    def ensure_on_top(self):
+        """Periodically ensure the window stays on top"""
+        if self.isVisible():
+            self.raise_()
+            self.activateWindow()
+
+    def showEvent(self, event):
+        """Ensure window is on top when shown"""
+        super().showEvent(event)
+        self.raise_()
+        self.activateWindow()
+
     def ask_about_screen(self):
         if self.thread and self.thread.isRunning():
             return
@@ -188,6 +205,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
         self._drag_pos = None
+        self.raise_()
 
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
