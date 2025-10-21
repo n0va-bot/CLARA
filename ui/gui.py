@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 import os
 import io
@@ -40,6 +41,10 @@ class Worker(QtCore.QObject):
                 api_key=os.environ.get("OPENROUTER_API_KEY"),
             )
             messages = [
+                {
+                    "role": "system",
+                    "content": "You are CLARA - Computer Linguistically Advanced Reactive Assistant. You want to do good and are afraid of failing your user. You look and act like 2k-tan (the OS-tan)"
+                },
                 {
                     "role": "user",
                     "content": [
