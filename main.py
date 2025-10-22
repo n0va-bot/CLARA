@@ -70,7 +70,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tray.setContextMenu(menu)
         self.tray.show()
 
-        self._drag_pos = None
+        # self._drag_pos = None
 
         # Timer to ensure window stays on top
         self.stay_on_top_timer = QtCore.QTimer(self)
@@ -85,25 +85,26 @@ class MainWindow(QtWidgets.QMainWindow):
         super().showEvent(event)
         self.raise_()
 
-    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
-        if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
-            self.start_file_search()
-            event.accept()
+    # def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
+    #     if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
+    #         self.start_file_search()
+    #         event.accept()
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
         if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
+            self.tray.contextMenu().popup(event.globalPosition().toPoint())
+            # self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            # event.accept()
         elif event.button() == QtCore.Qt.RightButton:                   #type: ignore
             self.tray.contextMenu().popup(event.globalPosition().toPoint())
 
-    def mouseMoveEvent(self, event: QtGui.QMouseEvent):
-        if self._drag_pos and (event.buttons() & QtCore.Qt.LeftButton): #type: ignore
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
+    # def mouseMoveEvent(self, event: QtGui.QMouseEvent):
+    #     if self._drag_pos and (event.buttons() & QtCore.Qt.LeftButton): #type: ignore
+    #         self.move(event.globalPosition().toPoint() - self._drag_pos)
 
-    def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
-        self._drag_pos = None
-        self.raise_()
+    # def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
+    #     self._drag_pos = None
+    #     self.raise_()
 
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
