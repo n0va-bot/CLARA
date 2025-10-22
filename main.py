@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import sys, os
+import sys, os, subprocess
 from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -32,7 +32,7 @@ class SearchResultsDialog(QtWidgets.QDialog):
             QtGui.QDesktopServices.openUrl(url)
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, restart=False):
         super().__init__()
 
         flags = (
@@ -62,6 +62,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # MENU
         menu = QtWidgets.QMenu()
         menu.addAction("Search Files", self.start_file_search)
+        if restart:
+            menu.addAction("Restart", self.restart_application)
         menu.addAction("Hide/Show", self.toggle_visible)
         menu.addSeparator()
         menu.addAction("Quit", QtWidgets.QApplication.quit)
@@ -125,12 +127,18 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 QtWidgets.QMessageBox.information(self, "No Results", f"No files found matching '{pattern}'.")
 
+    def restart_application(self):
+        """Restarts the application."""
+        subprocess.Popen([sys.executable] + sys.argv)
+        QtWidgets.QApplication.quit()
+
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("CLARA")
 
-    pet = MainWindow()
+    restart_enabled = "--restart" in sys.argv
+    pet = MainWindow(restart=restart_enabled)
     
     # bottom right corner
     screen_geometry = app.primaryScreen().availableGeometry()
