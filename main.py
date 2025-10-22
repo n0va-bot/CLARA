@@ -129,7 +129,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.results_dialog = SearchResultsDialog(results, self)
                 self.results_dialog.show()
             else:
-                QtWidgets.QMessageBox.information(self, "No Results", f"No files found matching '{pattern}'.")
+                reply = QtWidgets.QMessageBox.question(self, "No Results", "Sorry, I couldn't find anything in your home folder. Would you like me to search the root folder?",
+                                                       QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No, QtWidgets.QMessageBox.StandardButton.No)
+                if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                    try:
+                        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)  # type: ignore
+                        results = find(pattern, root='/')
+                    except RuntimeError as e:
+                        QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
+                        return
+                    finally:
+                        QtWidgets.QApplication.restoreOverrideCursor()
+
+                    if results:
+                        self.results_dialog = SearchResultsDialog(results, self)
+                        self.results_dialog.show()
+                    else:
+                        QtWidgets.QMessageBox.information(self, "No Results", "Sorry, I couldn't find anything in the root folder either.")
 
     def restart_application(self):
         """Restarts the application."""
