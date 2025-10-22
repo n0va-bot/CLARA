@@ -59,16 +59,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
 
-        # MENU
-        menu = QtWidgets.QMenu()
-        menu.addAction("Search Files", self.start_file_search)
+        # RIGHT MENU
+        right_menu = QtWidgets.QMenu()
         if restart:
-            menu.addAction("Restart", self.restart_application)
-        menu.addAction("Hide/Show", self.toggle_visible)
-        menu.addSeparator()
-        menu.addAction("Quit", QtWidgets.QApplication.quit)
-        self.tray.setContextMenu(menu)
+            right_menu.addAction("Restart", self.restart_application)
+        right_menu.addAction("Hide/Show", self.toggle_visible)
+        right_menu.addSeparator()
+        right_menu.addAction("Quit", QtWidgets.QApplication.quit)
+        self.tray.setContextMenu(right_menu)
         self.tray.show()
+
+        # LEFT MENU
+        self.left_menu = QtWidgets.QMenu()
+        self.left_menu.addAction("Search Files", self.start_file_search)
 
         # self._drag_pos = None
 
@@ -92,7 +95,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
         if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
-            self.tray.contextMenu().popup(event.globalPosition().toPoint())
+            self.left_menu.popup(event.globalPosition().toPoint())
             # self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             # event.accept()
         elif event.button() == QtCore.Qt.RightButton:                   #type: ignore
