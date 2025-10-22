@@ -46,13 +46,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stay_on_top_timer.start(1000)
 
     def ensure_on_top(self):
-        """Periodically ensure the window stays on top"""
         if self.isVisible():
             self.raise_()
             self.activateWindow()
 
     def showEvent(self, event):
-        """Ensure window is on top when shown"""
         super().showEvent(event)
         self.raise_()
         self.activateWindow()
