@@ -8,3 +8,6 @@ __pycache__/
 *.pyt
 *.pyc.*
 *.pyo.*
+
+# SUPERCOPY
+copy.md
