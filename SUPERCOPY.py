@@ -1,6 +1,6 @@
 files = [
     "core/file_search.py",
-    "ui/gui.py"
+    "main.py"
 ]
 
 codeblock = "```"
