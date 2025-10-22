@@ -10,13 +10,13 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
 
         flags = (
-            QtCore.Qt.FramelessWindowHint
-            | QtCore.Qt.WindowStaysOnTopHint
-            | QtCore.Qt.Tool
+            QtCore.Qt.FramelessWindowHint                              #type: ignore
+            | QtCore.Qt.WindowStaysOnTopHint                           #type: ignore
+            | QtCore.Qt.Tool                                           #type: ignore
         )
 
-        self.setWindowFlags(flags)
-        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        self.setWindowFlags(flags)         
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)          #type: ignore
         pix = QtGui.QPixmap(str(ASSET))
 
         self.label = QtWidgets.QLabel(self)
@@ -56,14 +56,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.activateWindow()
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
-        if event.button() == QtCore.Qt.LeftButton:
+        if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()
-        elif event.button() == QtCore.Qt.RightButton:
+        elif event.button() == QtCore.Qt.RightButton:                   #type: ignore
             self.tray.contextMenu().popup(event.globalPosition().toPoint())
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
-        if self._drag_pos and (event.buttons() & QtCore.Qt.LeftButton):
+        if self._drag_pos and (event.buttons() & QtCore.Qt.LeftButton): #type: ignore
             self.move(event.globalPosition().toPoint() - self._drag_pos)
 
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
