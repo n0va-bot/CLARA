@@ -450,6 +450,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_git(self):
         update_repository()
+        QtWidgets.QMessageBox.information(self, "Update", "Repository updated. Restarting application.")
         self.restart_application()
 
     def restart_application(self):
