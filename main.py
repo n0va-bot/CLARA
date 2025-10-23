@@ -61,6 +61,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # RIGHT MENU
         right_menu = QtWidgets.QMenu()
+        right_menu.addAction("Search Files", self.start_file_search)
+        right_menu.addSeparator()
         if restart:
             right_menu.addAction("Restart", self.restart_application)
         right_menu.addAction("Hide/Show", self.toggle_visible)
