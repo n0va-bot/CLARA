@@ -449,12 +449,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QApplication.restoreOverrideCursor()
 
     def update_git(self):
-        update_repository()
-        QtWidgets.QMessageBox.information(self, "Update", "Repository updated. Restarting application.")
-        self.restart_application()
+        status, message = update_repository()
+        
+        if status == "UPDATED":
+            reply = QtWidgets.QMessageBox.question(self, "Update Successful",
+                                                   f"{message}\n\nWould you like to restart now to apply the changes?",
+                                                   QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                                                   QtWidgets.QMessageBox.StandardButton.Yes)
+            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                self.restart_application()
+        
+        elif status == "UP_TO_DATE":
+            QtWidgets.QMessageBox.information(self, "No Updates", message)
+            
+        elif status == "FAILED":
+            QtWidgets.QMessageBox.critical(self, "Update Failed", message)
 
     def restart_application(self):
-        subprocess.Popen([sys.executable] + sys.argv)
+        presence.end()
+        
+        args = [sys.executable] + sys.argv
+        if "--restart" not in args:
+            args.append("--restart")
+            
+        subprocess.Popen(args)
+        
         QtWidgets.QApplication.quit()
 
 
@@ -475,8 +494,10 @@ def main():
 
     pet.show()
 
+    # Gracefully handle shutdown
+    app.aboutToQuit.connect(presence.end)
     sys.exit(app.exec())
-    presence.end()
+
 
 if __name__ == "__main__":
     main()

@@ -1,27 +1,33 @@
-from git import Repo
+from git import Repo, GitCommandError
 from pathlib import Path
 
-REPO_URL = "https://github.com/n0va-bot/CLARA"
-REPO_DIR = Path(__file__).parent
+REPO_DIR = Path(__file__).parent.parent
 
 def update_repository():
     try:
+        if not (REPO_DIR / ".git").exists():
+            return "FAILED", "Not a git repository. Cannot update."
+
         repo = Repo(REPO_DIR)
-        current_branch = repo.active_branch
-        
-        print(f"Fetching latest changes from {current_branch}...")
         origin = repo.remotes.origin
+        
         origin.fetch()
         
-        print(f"Pulling changes for branch {current_branch}...")
+        local_commit = repo.head.commit
+        remote_commit = origin.refs[repo.active_branch.name].commit
+        
+        if local_commit == remote_commit:
+            return "UP_TO_DATE", "You are already on the latest version."
+        
         origin.pull()
         
-        print("Repository updated successfully.")
-        return True
+        return "UPDATED", "CLARA has been updated successfully."
+
+    except GitCommandError as e:
+        return "FAILED", f"An error occurred during the update:\n\n{e}"
     except Exception as e:
-        print(f"Error updating repository: {e}")
-        return False
+        return "FAILED", f"An unexpected error occurred:\n\n{e}"
 
 if __name__ == "__main__":
-    REPO_DIR = Path(__file__).parent / ".."
-    update_repository()
+    status, message = update_repository()
+    print(f"Status: {status}\nMessage: {message}")
