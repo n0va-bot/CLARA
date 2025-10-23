@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import configparser
 
 class App:
     def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False):
@@ -27,33 +28,53 @@ def get_desktop_dirs():
     
     return [d for d in dirs if d.exists()]
 
-def parse_desktop_file(file_path: Path) -> App:
-    app_data = {}
-    with file_path.open() as f:
-        for line in f:
-            if line.startswith("["):
-                continue
-            if "=" in line:
-                key, value = line.split("=", 1)
-                app_data[key] = value.strip().strip('"')
+def parse_desktop_file(file_path: Path) -> list[App]:
+    apps = []
+    config = configparser.ConfigParser(interpolation=None)
     
-    if "Name" in app_data:
-        app_data["Name"] = app_data["Name"].strip().strip('"')
-    if "Icon" in app_data:
-        app_data["Icon"] = app_data["Icon"].strip().strip('"')
-    if "Hidden" in app_data:
-        app_data["Hidden"] = app_data["Hidden"].strip().strip('"')
-    if "NoDisplay" in app_data:
-        app_data["Hidden"] = app_data["NoDisplay"].strip().strip('"')
+    try:
+        config.read(file_path, encoding='utf-8')
+    except Exception:
+        return []
 
-    app = App(
-        name=app_data.get("Name", ""),
-        exec=app_data.get("Exec", ""),
-        icon=app_data.get("Icon", ""),
-        hidden=app_data.get("Hidden", "").lower() == "true"
-    )
+    if 'Desktop Entry' not in config:
+        return []
 
-    return app
+    main_entry = config['Desktop Entry']
+    main_name = main_entry.get('Name')
+    
+    is_hidden = main_entry.get('Hidden', 'false').lower() == 'true' or \
+                main_entry.get('NoDisplay', 'false').lower() == 'true'
+
+    if main_name and not is_hidden:
+        main_exec = main_entry.get('Exec')
+        if main_exec:
+            apps.append(App(
+                name=main_name,
+                exec=main_exec,
+                icon=main_entry.get('Icon', ''),
+                hidden=False
+            ))
+
+        if 'Actions' in main_entry:
+            action_ids = [action for action in main_entry['Actions'].split(';') if action]
+            for action_id in action_ids:
+                action_section_name = f'Desktop Action {action_id}'
+                if action_section_name in config:
+                    action_section = config[action_section_name]
+                    action_name = action_section.get('Name')
+                    action_exec = action_section.get('Exec')
+
+                    if action_name and action_exec:
+                        combined_name = f"{main_name} - {action_name}"
+                        apps.append(App(
+                            name=combined_name,
+                            exec=action_exec,
+                            icon=main_entry.get('Icon', ''),
+                            hidden=False
+                        ))
+    return apps
+
 
 def is_user_dir(path: Path) -> bool:
     path_str = str(path)
@@ -67,24 +88,33 @@ def list_apps() -> list[App]:
         is_user = is_user_dir(desktop_dir)
         
         for file_path in desktop_dir.glob("*.desktop"):
-            app = parse_desktop_file(file_path)
-            
-            if app.hidden or not app.name:
-                continue
-            
-            if app.name in apps_dict:
-                existing_is_user = apps_dict[app.name][1]
-                if is_user and not existing_is_user:
+            for app in parse_desktop_file(file_path):
+                
+                if app.hidden or not app.name or not app.exec:
+                    continue
+                
+                if app.name in apps_dict:
+                    existing_is_user = apps_dict[app.name][1]
+                    if is_user and not existing_is_user:
+                        apps_dict[app.name] = (app, is_user)
+                else:
                     apps_dict[app.name] = (app, is_user)
-            else:
-                apps_dict[app.name] = (app, is_user)
     
     return [app for app, _ in apps_dict.values()]
 
 def launch(app: App):
-    os.system(f"{app.exec}")
+    import subprocess
+    import shlex
+    
+    cleaned_exec = app.exec.split(' %')[0]
+    
+    try:
+        subprocess.Popen(shlex.split(cleaned_exec))
+    except Exception as e:
+        print(f"Failed to launch '{app.name}': {e}")
+
 
 if __name__ == "__main__":
     apps = list_apps()
-    for app in apps:
+    for app in sorted(apps, key=lambda a: a.name):
         print(app)
