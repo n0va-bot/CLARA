@@ -55,15 +55,31 @@ def parse_desktop_file(file_path: Path) -> App:
 
     return app
 
+def is_user_dir(path: Path) -> bool:
+    path_str = str(path)
+    user_home = str(Path.home())
+    return path_str.startswith(user_home)
+
 def list_apps() -> list[App]:
-    all_apps = []
+    apps_dict = {}
+    
     for desktop_dir in get_desktop_dirs():
+        is_user = is_user_dir(desktop_dir)
+        
         for file_path in desktop_dir.glob("*.desktop"):
             app = parse_desktop_file(file_path)
-            if not app.hidden:
-                all_apps.append(app)
+            
+            if app.hidden or not app.name:
+                continue
+            
+            if app.name in apps_dict:
+                existing_is_user = apps_dict[app.name][1]
+                if is_user and not existing_is_user:
+                    apps_dict[app.name] = (app, is_user)
+            else:
+                apps_dict[app.name] = (app, is_user)
     
-    return all_apps
+    return [app for app, _ in apps_dict.values()]
 
 def launch(app: App):
     os.system(f"{app.exec}")
