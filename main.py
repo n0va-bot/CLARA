@@ -4,11 +4,11 @@ from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from core.file_search import find
-from core.web_search import search
+from core.web_search import MullvadLetaWrapper
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
-class SearchResultsDialog(QtWidgets.QDialog):
+class FileSearchResults(QtWidgets.QDialog):
     def __init__(self, results, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Search Results")
@@ -115,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QApplication.restoreOverrideCursor()
 
             if results:
-                self.results_dialog = SearchResultsDialog(results, self)
+                self.results_dialog = FileSearchResults(results, self)
                 self.results_dialog.show()
             else:
                 reply = QtWidgets.QMessageBox.question(self, "No Results", "Sorry, I couldn't find anything in your home folder. Would you like me to search the root folder?",
@@ -131,7 +131,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         QtWidgets.QApplication.restoreOverrideCursor()
 
                     if results:
-                        self.results_dialog = SearchResultsDialog(results, self)
+                        self.results_dialog = FileSearchResults(results, self)
                         self.results_dialog.show()
                     else:
                         QtWidgets.QMessageBox.information(self, "No Results", "Sorry, I couldn't find anything in the root folder either.")
@@ -141,7 +141,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if ok and query:
             try:
                 QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
-                search(query)
+                leta = MullvadLetaWrapper(engine="brave")
+                results = leta.search(query)
             except RuntimeError as e:
                 QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
                 return
