@@ -56,32 +56,19 @@ def parse_desktop_file(file_path: Path) -> App:
     return app
 
 def list_apps() -> list[App]:
-    seen_apps = {}
-    
+    all_apps = []
     for desktop_dir in get_desktop_dirs():
         for file_path in desktop_dir.glob("*.desktop"):
-            try:
-                app = parse_desktop_file(file_path)
-                
-                if app.hidden or not app.name:
-                    continue
-                
-                app_key = (app.name, app.exec)
-                
-                if app_key not in seen_apps:
-                    seen_apps[app_key] = app
-                    
-            except Exception as e:
-                print(f"Warning: Could not parse {file_path}: {e}")
-                continue
+            app = parse_desktop_file(file_path)
+            if not app.hidden:
+                all_apps.append(app)
     
-    return list(seen_apps.values())
+    return all_apps
 
 def launch(app: App):
     os.system(f"{app.exec}")
 
 if __name__ == "__main__":
     apps = list_apps()
-    print(f"Found {len(apps)} applications:\n")
-    for app in sorted(apps, key=lambda x: x.name.lower()):
+    for app in apps:
         print(app)
