@@ -1,6 +1,9 @@
 import webbrowser
-from duckduckgo_search import DDGS
+from core.headers import get_useragent
 
-def search(query):
-    results = DDGS().text("python programming", max_results=10)
-    print(results)
+url = "http://frogfind.com/?q="
+
+def search(query: str):
+    headers = {
+        "User-Agent": get_useragent()
+    }

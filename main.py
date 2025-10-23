@@ -139,7 +139,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def start_web_search(self):
         query, ok = QtWidgets.QInputDialog.getText(self, "Web Search", "Enter search query:")        
         if ok and query:
-            search(query)
+            try:
+                QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
+                search(query)
+            except RuntimeError as e:
+                QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
+                return
+            finally:
+                QtWidgets.QApplication.restoreOverrideCursor()
 
     def restart_application(self):
         """Restarts the application."""
