@@ -7,6 +7,7 @@ from core.file_search import find
 from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
 from core.app_launcher import list_apps, launch, App
+from core.updater import update_repository
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -351,6 +352,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addAction("Search Files", self.start_file_search)
         right_menu.addAction("Search Web", self.start_web_search)
         right_menu.addSeparator()
+        right_menu.addAction("Check for updates", self.update_git)
         if restart:
             right_menu.addAction("Restart", self.restart_application)
         right_menu.addAction("Hide/Show", self.toggle_visible)
@@ -445,6 +447,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
             finally:
                 QtWidgets.QApplication.restoreOverrideCursor()
+
+    def update_git(self):
+        update_repository()
+        self.restart_application()
 
     def restart_application(self):
         subprocess.Popen([sys.executable] + sys.argv)
