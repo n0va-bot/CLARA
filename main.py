@@ -6,8 +6,97 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from core.file_search import find
 from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
+from core.app_launcher import list_apps, launch, App
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
+
+class AppLauncherDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("App Launcher")
+        self.setMinimumSize(600, 400)
+        
+        # Main layout
+        layout = QtWidgets.QVBoxLayout()
+        
+        # Search box
+        self.search_box = QtWidgets.QLineEdit()
+        self.search_box.setPlaceholderText("Search applications...")
+        self.search_box.textChanged.connect(self.filter_apps)
+        layout.addWidget(self.search_box)
+        
+        # Apps list widget
+        self.list_widget = QtWidgets.QListWidget()
+        self.list_widget.itemDoubleClicked.connect(self.launch_app)
+        layout.addWidget(self.list_widget)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        launch_button = QtWidgets.QPushButton("Launch")
+        launch_button.clicked.connect(lambda: self.launch_app(self.list_widget.currentItem()))
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.close)
+        
+        button_layout.addStretch()
+        button_layout.addWidget(launch_button)
+        button_layout.addWidget(close_button)
+        layout.addLayout(button_layout)
+        
+        self.setLayout(layout)
+        
+        # Load apps
+        self.load_apps()
+        
+        # Focus search box
+        self.search_box.setFocus()
+    
+    def load_apps(self):
+        try:
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
+            self.apps = list_apps()
+            self.apps.sort(key=lambda x: x.name.lower())
+            self.populate_list(self.apps)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to load applications: {e}")
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+    
+    def populate_list(self, apps):
+        self.list_widget.clear()
+        for app in apps:
+            item = QtWidgets.QListWidgetItem(app.name)
+            item.setData(QtCore.Qt.UserRole, app) #type: ignore
+            
+            # Try to load the icon
+            if app.icon:
+                icon = QtGui.QIcon.fromTheme(app.icon)
+                if not icon.isNull():
+                    item.setIcon(icon)
+            
+            self.list_widget.addItem(item)
+    
+    def filter_apps(self, text):
+        if not text:
+            self.populate_list(self.apps)
+            return
+        
+        text_lower = text.lower()
+        filtered_apps = [app for app in self.apps if text_lower in app.name.lower()]
+        self.populate_list(filtered_apps)
+    
+    def launch_app(self, item: QtWidgets.QListWidgetItem):
+        if not item:
+            return
+        
+        app = item.data(QtCore.Qt.UserRole) #type: ignore
+        if app:
+            try:
+                launch(app)
+                self.close()
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Launch Error", 
+                                              f"Failed to launch {app.name}: {e}")
+
 
 class FileSearchResults(QtWidgets.QDialog):
     def __init__(self, results, parent=None):
@@ -26,7 +115,6 @@ class FileSearchResults(QtWidgets.QDialog):
         self.setLayout(layout)
 
     def open_file_location(self, item: QtWidgets.QListWidgetItem):
-        """Opens the directory containing the selected file."""
         file_path = item.text()
         if os.path.exists(file_path):
             directory = os.path.dirname(file_path)
@@ -119,7 +207,6 @@ class WebSearchResults(QtWidgets.QDialog):
         self.setLayout(layout)
     
     def _create_infobox_widget(self, infobox):
-        """Create widget for infobox display."""
         widget = QtWidgets.QFrame()
         widget.setFrameShape(QtWidgets.QFrame.StyledPanel) #type: ignore
         widget.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 3px; padding: 8px;")
@@ -156,7 +243,6 @@ class WebSearchResults(QtWidgets.QDialog):
         return widget
     
     def _create_news_widget(self, news_item):
-        """Create widget for news item display."""
         widget = QtWidgets.QFrame()
         widget.setFrameShape(QtWidgets.QFrame.Box) #type: ignore
         widget.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 3px; padding: 8px;")
@@ -185,7 +271,6 @@ class WebSearchResults(QtWidgets.QDialog):
         return widget
     
     def _create_result_widget(self, result):
-        """Create widget for search result display."""
         widget = QtWidgets.QFrame()
         widget.setFrameShape(QtWidgets.QFrame.NoFrame) #type: ignore
         widget.setStyleSheet("padding: 5px;")
@@ -216,7 +301,6 @@ class WebSearchResults(QtWidgets.QDialog):
         return widget
     
     def load_page(self, page_num):
-        """Load a different page of results."""
         try:
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)  # type: ignore
             leta = MullvadLetaWrapper(engine=self.results['engine'])
@@ -263,6 +347,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # RIGHT MENU
         right_menu = QtWidgets.QMenu()
+        right_menu.addAction("Launch App", self.start_app_launcher)
         right_menu.addAction("Search Files", self.start_file_search)
         right_menu.addAction("Search Web", self.start_web_search)
         right_menu.addSeparator()
@@ -276,6 +361,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # LEFT MENU
         self.left_menu = QtWidgets.QMenu()
+        self.left_menu.addAction("Launch App", self.start_app_launcher)
         self.left_menu.addAction("Search Files", self.start_file_search)
         self.left_menu.addAction("Search Web", self.start_web_search)
 
@@ -301,6 +387,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
+
+    def start_app_launcher(self):
+        self.app_launcher_dialog = AppLauncherDialog(self)
+        self.app_launcher_dialog.show()
 
     def start_file_search(self):
         pattern, ok = QtWidgets.QInputDialog.getText(self, "File Search", "Enter search pattern:")
@@ -357,7 +447,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QApplication.restoreOverrideCursor()
 
     def restart_application(self):
-        """Restarts the application."""
         subprocess.Popen([sys.executable] + sys.argv)
         QtWidgets.QApplication.quit()
 
