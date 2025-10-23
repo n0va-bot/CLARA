@@ -319,7 +319,7 @@ class WebSearchResults(QtWidgets.QDialog):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, restart=False):
+    def __init__(self, restart=False, no_quit=False):
         super().__init__()
 
         flags = (
@@ -357,7 +357,8 @@ class MainWindow(QtWidgets.QMainWindow):
             right_menu.addAction("Restart", self.restart_application)
         right_menu.addAction("Hide/Show", self.toggle_visible)
         right_menu.addSeparator()
-        right_menu.addAction("Quit", QtWidgets.QApplication.quit)
+        if not no_quit:
+            right_menu.addAction("Quit", QtWidgets.QApplication.quit)
         self.tray.setContextMenu(right_menu)
         self.tray.show()
 
@@ -469,9 +470,7 @@ class MainWindow(QtWidgets.QMainWindow):
         presence.end()
         
         args = [sys.executable] + sys.argv
-        if "--restart" not in args:
-            args.append("--restart")
-            
+
         subprocess.Popen(args)
         
         QtWidgets.QApplication.quit()
@@ -482,7 +481,8 @@ def main():
     app.setApplicationName("CLARA")
 
     restart_enabled = "--restart" in sys.argv
-    pet = MainWindow(restart=restart_enabled)
+    no_quit = "--no-quit" in sys.argv
+    pet = MainWindow(restart=restart_enabled, no_quit=no_quit)
     presence.start()
     
     # bottom right corner
