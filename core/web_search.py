@@ -1,14 +1,6 @@
 import webbrowser
-import ddg
+from duckduckgo_search import DDGS
 
-def search(query: str) -> None:
-    """Performs a web search using the default browser.
-
-    Args:
-        query (str): The search query.
-    """
-    if not query:
-        raise ValueError("Search query cannot be empty.")
-    
-    url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
-    webbrowser.open(url)
+def search(query):
+    results = DDGS().text("python programming", max_results=10)
+    print(results)
