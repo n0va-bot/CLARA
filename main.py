@@ -4,6 +4,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from core.file_search import find
+from core.web_search import search
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -62,6 +63,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # RIGHT MENU
         right_menu = QtWidgets.QMenu()
         right_menu.addAction("Search Files", self.start_file_search)
+        right_menu.addAction("Search Web", self.start_web_search)
         right_menu.addSeparator()
         if restart:
             right_menu.addAction("Restart", self.restart_application)
@@ -74,6 +76,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # LEFT MENU
         self.left_menu = QtWidgets.QMenu()
         self.left_menu.addAction("Search Files", self.start_file_search)
+        self.left_menu.addAction("Search Web", self.start_web_search)
 
         # always on top timer
         self.stay_on_top_timer = QtCore.QTimer(self)
@@ -132,6 +135,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.results_dialog.show()
                     else:
                         QtWidgets.QMessageBox.information(self, "No Results", "Sorry, I couldn't find anything in the root folder either.")
+
+    def start_web_search(self):
+        query, ok = QtWidgets.QInputDialog.getText(self, "Web Search", "Enter search query:")        
+        if ok and query:
+            search(query)
 
     def restart_application(self):
         """Restarts the application."""
