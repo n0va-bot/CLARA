@@ -10,3 +10,5 @@ A ***very*** WIP desktop assistant for X11-based desktops.
 - File search
 - Web search
 - Updater (git)
+
+If you want to contribute in any way, PRs (and issues) welcome
