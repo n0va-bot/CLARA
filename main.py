@@ -5,6 +5,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from core.file_search import find
 from core.web_search import MullvadLetaWrapper
+from core.discord_presence import presence
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -367,6 +368,7 @@ def main():
 
     restart_enabled = "--restart" in sys.argv
     pet = MainWindow(restart=restart_enabled)
+    presence.start()
     
     # bottom right corner
     screen_geometry = app.primaryScreen().availableGeometry()
@@ -378,6 +380,7 @@ def main():
     pet.show()
 
     sys.exit(app.exec())
+    presence.end()
 
 if __name__ == "__main__":
     main()
