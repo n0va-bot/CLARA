@@ -9,6 +9,7 @@ from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
 from core.app_launcher import list_apps, launch
 from core.updater import update_repository, is_update_available
+from core.dukto import DuktoProtocol
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -318,8 +319,9 @@ class WebSearchResults(QtWidgets.QDialog):
 
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
+    receive_request_signal = QtCore.Signal(str)
 
-    def __init__(self, restart=False, no_quit=False, super_menu=True):
+    def __init__(self, dukto_handler, restart=False, no_quit=False, super_menu=True):
         super().__init__()
 
         flags = (
@@ -344,6 +346,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMask(mask)
 
         self.super_menu = super_menu
+        self.dukto_handler = dukto_handler
+        self.dukto_handler.on_receive_request = self.on_dukto_receive_request
+        self.receive_request_signal.connect(self.show_receive_confirmation)
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
@@ -417,6 +422,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
+
+    def on_dukto_receive_request(self, sender_ip: str):
+        self.receive_request_signal.emit(sender_ip)
+
+    def show_receive_confirmation(self, sender_ip: str):
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Incoming Transfer",
+            f"You have an incoming transfer from {sender_ip}.\nDo you want to accept it?",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.No
+        )
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            self.dukto_handler.approve_transfer()
+        else:
+            self.dukto_handler.reject_transfer()
 
     def start_app_launcher(self):
         self.app_launcher_dialog = AppLauncherDialog(self)
@@ -519,6 +540,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def restart_application(self):
         presence.end()
+        self.dukto_handler.shutdown()
         
         args = [sys.executable] + sys.argv
 
@@ -534,8 +556,15 @@ def main():
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
     super_menu = not "--no-super" in sys.argv
-    pet = MainWindow(restart=restart, no_quit=no_quit, super_menu=super_menu)
+    
+    dukto_handler = DuktoProtocol()
+    
+    pet = MainWindow(dukto_handler=dukto_handler, restart=restart, no_quit=no_quit, super_menu=super_menu)
+    
     presence.start()
+    
+    dukto_handler.initialize()
+    dukto_handler.say_hello()
     
     # bottom right corner
     screen_geometry = app.primaryScreen().availableGeometry()
@@ -547,6 +576,7 @@ def main():
     pet.show()
 
     app.aboutToQuit.connect(presence.end)
+    app.aboutToQuit.connect(dukto_handler.shutdown)
     sys.exit(app.exec())
 
 

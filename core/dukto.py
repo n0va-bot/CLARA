@@ -34,13 +34,19 @@ class DuktoProtocol:
         self.peers: Dict[str, Peer] = {}
         self.is_sending = False
         self.is_receiving = False
+        self.is_awaiting_approval = False
         
         self.running = False
+        
+        # Confirmation for receiving
+        self._transfer_decision = threading.Event()
+        self._transfer_approved = False
         
         # Callbacks
         self.on_peer_added: Optional[Callable[[Peer], None]] = None
         self.on_peer_removed: Optional[Callable[[Peer], None]] = None
         self.on_receive_start: Optional[Callable[[str], None]] = None
+        self.on_receive_request: Optional[Callable[[str], None]] = None
         self.on_receive_complete: Optional[Callable[[List[str], int], None]] = None
         self.on_receive_text: Optional[Callable[[str, int], None]] = None
         self.on_send_complete: Optional[Callable[[List[str]], None]] = None
@@ -143,6 +149,14 @@ class DuktoProtocol:
         threading.Thread(target=self._send_text_thread,
                         args=(ip_dest, port, text), daemon=True).start()
     
+    def approve_transfer(self):
+        self._transfer_approved = True
+        self._transfer_decision.set()
+
+    def reject_transfer(self):
+        self._transfer_approved = False
+        self._transfer_decision.set()
+
     def _udp_listener(self):
         while self.running:
             try:
@@ -188,16 +202,35 @@ class DuktoProtocol:
         while self.running:
             try:
                 conn, addr = self.tcp_server.accept()
-                if self.is_receiving or self.is_sending:
+                if self.is_receiving or self.is_sending or self.is_awaiting_approval:
                     conn.close()
                     continue
                 
-                threading.Thread(target=self._receive_files,
+                threading.Thread(target=self._handle_transfer_request, 
                                args=(conn, addr[0]), daemon=True).start()
             except Exception as e:
                 if self.running:
                     print(f"TCP listener error: {e}")
-    
+
+    def _handle_transfer_request(self, conn: socket.socket, sender_ip: str):
+        try:
+            self.is_awaiting_approval = True
+            self._transfer_decision.clear()
+
+            if self.on_receive_request:
+                self.on_receive_request(sender_ip)
+            else:
+                self.reject_transfer()
+
+            self._transfer_decision.wait()
+
+            if self._transfer_approved:
+                self._receive_files(conn, sender_ip)
+            else:
+                conn.close()
+        finally:
+            self.is_awaiting_approval = False
+
     def _receive_files(self, conn: socket.socket, sender_ip: str):
         self.is_receiving = True
         
