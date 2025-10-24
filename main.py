@@ -34,13 +34,10 @@ class AppLauncherDialog(QtWidgets.QDialog):
         
         # Buttons
         button_layout = QtWidgets.QHBoxLayout()
-        launch_button = QtWidgets.QPushButton("Launch")
-        launch_button.clicked.connect(lambda: self.launch_app(self.list_widget.currentItem()))
         close_button = QtWidgets.QPushButton("Close")
         close_button.clicked.connect(self.close)
         
         button_layout.addStretch()
-        button_layout.addWidget(launch_button)
         button_layout.addWidget(close_button)
         layout.addLayout(button_layout)
         
