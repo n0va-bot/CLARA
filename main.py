@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import sys, os, subprocess
+import sys, os, subprocess, json
 from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 from pynput import keyboard
@@ -12,11 +12,13 @@ from core.updater import update_repository, is_update_available
 from core.dukto import DuktoProtocol, Peer
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
+STRINGS_PATH = Path(__file__).parent / "strings" / "en.json"
 
 class AppLauncherDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, strings, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("App Launcher")
+        self.strings = strings["app_launcher"]
+        self.setWindowTitle(self.strings["title"])
         self.setMinimumSize(600, 400)
         
         # Main layout
@@ -24,7 +26,7 @@ class AppLauncherDialog(QtWidgets.QDialog):
         
         # Search box
         self.search_box = QtWidgets.QLineEdit()
-        self.search_box.setPlaceholderText("Search applications...")
+        self.search_box.setPlaceholderText(self.strings["placeholder"])
         self.search_box.textChanged.connect(self.filter_apps)
         layout.addWidget(self.search_box)
         
@@ -35,7 +37,7 @@ class AppLauncherDialog(QtWidgets.QDialog):
         
         # Buttons
         button_layout = QtWidgets.QHBoxLayout()
-        close_button = QtWidgets.QPushButton("Close")
+        close_button = QtWidgets.QPushButton(self.strings["close_button"])
         close_button.clicked.connect(self.close)
         
         button_layout.addStretch()
@@ -57,7 +59,7 @@ class AppLauncherDialog(QtWidgets.QDialog):
             self.apps.sort(key=lambda x: x.name.lower())
             self.populate_list(self.apps)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to load applications: {e}")
+            QtWidgets.QMessageBox.critical(self, self.strings["load_error_title"], self.strings["load_error_text"].format(e=e))
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
     
@@ -94,14 +96,15 @@ class AppLauncherDialog(QtWidgets.QDialog):
                 launch(app)
                 self.close()
             except Exception as e:
-                QtWidgets.QMessageBox.critical(self, "Launch Error", 
-                                              f"Failed to launch {app.name}: {e}")
+                QtWidgets.QMessageBox.critical(self, self.strings["launch_error_title"], 
+                                              self.strings["launch_error_text"].format(app_name=app.name, e=e))
 
 
 class FileSearchResults(QtWidgets.QDialog):
-    def __init__(self, results, parent=None):
+    def __init__(self, results, strings, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Search Results")
+        self.strings = strings["file_search"]
+        self.setWindowTitle(self.strings["results_title"])
         self.setMinimumSize(600, 400)
 
         # results list widget
@@ -123,20 +126,22 @@ class FileSearchResults(QtWidgets.QDialog):
 
 
 class WebSearchResults(QtWidgets.QDialog):
-    def __init__(self, results, parent=None):
+    def __init__(self, results, strings, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Web Search Results - {results['query']}")
+        self.strings = strings["web_search"]
+        self.setWindowTitle(self.strings["results_title"].format(query=results['query']))
         self.setMinimumSize(800, 600)
         
         self.results = results
+        self.strings_full = strings
         
         # Main layout
         layout = QtWidgets.QVBoxLayout()
         
         # Info label
-        info_text = f"Engine: {results['engine']} | Page: {results['page']}"
+        info_text = self.strings["info_base"].format(engine=results['engine'], page=results['page'])
         if results.get('cached'):
-            info_text += " | (Cached results)"
+            info_text += self.strings["info_cached"]
         info_label = QtWidgets.QLabel(info_text)
         info_label.setStyleSheet("color: gray; font-size: 10px; padding: 5px;")
         layout.addWidget(info_label)
@@ -164,7 +169,7 @@ class WebSearchResults(QtWidgets.QDialog):
         
         # Add news
         if results.get('news'):
-            news_label = QtWidgets.QLabel("News")
+            news_label = QtWidgets.QLabel(self.strings["news_header"])
             news_label.setStyleSheet("border: 1px solid #e0e0e0; border-radius: 3px; padding: 8px;")
             container_layout.addWidget(news_label)
             
@@ -191,14 +196,14 @@ class WebSearchResults(QtWidgets.QDialog):
         nav_layout = QtWidgets.QHBoxLayout()
         
         if results['page'] > 1:
-            prev_button = QtWidgets.QPushButton("← Previous Page")
+            prev_button = QtWidgets.QPushButton(self.strings["prev_button"])
             prev_button.clicked.connect(lambda: self.load_page(results['page'] - 1))
             nav_layout.addWidget(prev_button)
         
         nav_layout.addStretch()
         
         if results.get('has_next_page'):
-            next_button = QtWidgets.QPushButton("Next Page →")
+            next_button = QtWidgets.QPushButton(self.strings["next_button"])
             next_button.clicked.connect(lambda: self.load_page(results['page'] + 1))
             nav_layout.addWidget(next_button)
         
@@ -307,20 +312,21 @@ class WebSearchResults(QtWidgets.QDialog):
             new_results = leta.search(self.results['query'], page=page_num)
             
             # Close current dialog and open new one
-            new_dialog = WebSearchResults(new_results, self.parent())
+            new_dialog = WebSearchResults(new_results, self.strings_full, self.parent())
             new_dialog.show()
             self.close()
             
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
+            QtWidgets.QMessageBox.critical(self, self.strings["search_error_title"], self.strings["search_error_text"].format(e=e))
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
 
 
 class TextViewerDialog(QtWidgets.QDialog):
-    def __init__(self, text, parent=None):
+    def __init__(self, text, strings, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Text Received")
+        self.strings = strings["text_viewer"]
+        self.setWindowTitle(self.strings["title"])
         self.setMinimumSize(400, 300)
 
         self.text_to_copy = text
@@ -334,11 +340,11 @@ class TextViewerDialog(QtWidgets.QDialog):
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addStretch()
 
-        copy_button = QtWidgets.QPushButton("Copy to Clipboard")
+        copy_button = QtWidgets.QPushButton(self.strings["copy_button"])
         copy_button.clicked.connect(self.copy_text)
         button_layout.addWidget(copy_button)
 
-        close_button = QtWidgets.QPushButton("Close")
+        close_button = QtWidgets.QPushButton(self.strings["close_button"])
         close_button.clicked.connect(self.accept)
         button_layout.addWidget(close_button)
 
@@ -365,8 +371,10 @@ class MainWindow(QtWidgets.QMainWindow):
     dukto_error_signal = QtCore.Signal(str)
 
 
-    def __init__(self, dukto_handler, restart=False, no_quit=False, super_menu=True):
+    def __init__(self, dukto_handler, strings, restart=False, no_quit=False, super_menu=True):
         super().__init__()
+        
+        self.strings = strings
 
         flags = (
             QtCore.Qt.FramelessWindowHint                              #type: ignore
@@ -419,37 +427,40 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
+        
+        print(self.strings)
+        s = self.strings["main_window"]["right_menu"]
 
         # RIGHT MENU
         right_menu = QtWidgets.QMenu()
-        right_menu.addAction("Launch App", self.start_app_launcher)
-        right_menu.addAction("Search Files", self.start_file_search)
-        right_menu.addAction("Search Web", self.start_web_search)
+        right_menu.addAction(s["launch_app"], self.start_app_launcher)
+        right_menu.addAction(s["search_files"], self.start_file_search)
+        right_menu.addAction(s["search_web"], self.start_web_search)
         right_menu.addSeparator()
-        send_menu_right = right_menu.addMenu("Send")
-        self.send_files_submenu_right = send_menu_right.addMenu("Send File(s)")
-        self.send_text_submenu_right = send_menu_right.addMenu("Send Text")
+        send_menu_right = right_menu.addMenu(s["send_menu"])
+        self.send_files_submenu_right = send_menu_right.addMenu(s["send_files_submenu"])
+        self.send_text_submenu_right = send_menu_right.addMenu(s["send_text_submenu"])
         right_menu.addSeparator()
-        right_menu.addAction("Check for updates", self.update_git)
+        right_menu.addAction(s["check_updates"], self.update_git)
         if restart:
-            right_menu.addAction("Restart", self.restart_application)
-        right_menu.addAction("Hide/Show", self.toggle_visible)
+            right_menu.addAction(s["restart"], self.restart_application)
+        right_menu.addAction(s["toggle_visibility"], self.toggle_visible)
         right_menu.addSeparator()
         if not no_quit:
-            right_menu.addAction("Quit", QtWidgets.QApplication.quit)
+            right_menu.addAction(s["quit"], QtWidgets.QApplication.quit)
         self.tray.setContextMenu(right_menu)
         self.tray.activated.connect(self.handle_tray_activated)
         self.tray.show()
 
         # LEFT MENU
         self.left_menu = QtWidgets.QMenu()
-        self.left_menu.addAction("Launch App", self.start_app_launcher)
-        self.left_menu.addAction("Search Files", self.start_file_search)
-        self.left_menu.addAction("Search Web", self.start_web_search)
+        self.left_menu.addAction(s["launch_app"], self.start_app_launcher)
+        self.left_menu.addAction(s["search_files"], self.start_file_search)
+        self.left_menu.addAction(s["search_web"], self.start_web_search)
         self.left_menu.addSeparator()
-        send_menu_left = self.left_menu.addMenu("Send")
-        self.send_files_submenu_left = send_menu_left.addMenu("Send File(s)")
-        self.send_text_submenu_left = send_menu_left.addMenu("Send Text")
+        send_menu_left = self.left_menu.addMenu(s["send_menu"])
+        self.send_files_submenu_left = send_menu_left.addMenu(s["send_files_submenu"])
+        self.send_text_submenu_left = send_menu_left.addMenu(s["send_text_submenu"])
         
         self.update_peer_menus()
 
@@ -505,18 +516,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.send_text_submenu_left.clear()
         self.send_files_submenu_right.clear()
         self.send_text_submenu_right.clear()
+        
+        no_peers_str = self.strings["main_window"]["no_peers"]
 
         peers = list(self.dukto_handler.peers.values())
 
         if not peers:
-            no_peers_action_left_files = self.send_files_submenu_left.addAction("No peers found")
+            no_peers_action_left_files = self.send_files_submenu_left.addAction(no_peers_str)
             no_peers_action_left_files.setEnabled(False)
-            no_peers_action_left_text = self.send_text_submenu_left.addAction("No peers found")
+            no_peers_action_left_text = self.send_text_submenu_left.addAction(no_peers_str)
             no_peers_action_left_text.setEnabled(False)
             
-            no_peers_action_right_files = self.send_files_submenu_right.addAction("No peers found")
+            no_peers_action_right_files = self.send_files_submenu_right.addAction(no_peers_str)
             no_peers_action_right_files.setEnabled(False)
-            no_peers_action_right_text = self.send_text_submenu_right.addAction("No peers found")
+            no_peers_action_right_text = self.send_text_submenu_right.addAction(no_peers_str)
             no_peers_action_right_text.setEnabled(False)
             return
 
@@ -534,19 +547,22 @@ class MainWindow(QtWidgets.QMainWindow):
             text_action_right.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
 
     def start_file_send(self, peer: Peer):
+        dialog_title = self.strings["send_files_dialog_title"].format(peer_signature=peer.signature)
         file_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
             self,
-            f"Select files to send to {peer.signature}",
+            dialog_title,
             str(Path.home()),
         )
         if file_paths:
             self.dukto_handler.send_file(peer.address, file_paths, peer.port)
 
     def start_text_send(self, peer: Peer):
+        dialog_title = self.strings["send_text_dialog_title"].format(peer_signature=peer.signature)
+        dialog_label = self.strings["send_text_dialog_label"]
         text, ok = QtWidgets.QInputDialog.getMultiLineText(
             self,
-            f"Send Text to {peer.signature}",
-            "Enter text to send:"
+            dialog_title,
+            dialog_label
         )
         if ok and text:
             self.dukto_handler.send_text(peer.address, text, peer.port)
@@ -554,8 +570,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def show_receive_confirmation(self, sender_ip: str):
         reply = QtWidgets.QMessageBox.question(
             self,
-            "Incoming Transfer",
-            f"You have an incoming transfer from {sender_ip}.\nDo you want to accept it?",
+            self.strings["receive_confirm_title"],
+            self.strings["receive_confirm_text"].format(sender_ip=sender_ip),
             QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
             QtWidgets.QMessageBox.StandardButton.No
         )
@@ -566,15 +582,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.Slot(str)
     def handle_receive_start(self, sender_ip: str):
-        self.progress_dialog = QtWidgets.QProgressDialog("Receiving data...", "Cancel", 0, 100, self)
-        self.progress_dialog.setWindowTitle(f"Receiving from {sender_ip}")
+        s = self.strings["progress_dialog"]
+        self.progress_dialog = QtWidgets.QProgressDialog(s["receiving_label"], s["cancel_button"], 0, 100, self)
+        self.progress_dialog.setWindowTitle(s["receiving_title"].format(sender_ip=sender_ip))
         self.progress_dialog.setWindowModality(QtCore.Qt.WindowModal) # type: ignore
         self.progress_dialog.show()
     
     @QtCore.Slot(str)
     def handle_send_start(self, dest_ip: str):
-        self.progress_dialog = QtWidgets.QProgressDialog("Sending data...", "Cancel", 0, 100, self)
-        self.progress_dialog.setWindowTitle(f"Sending to {dest_ip}")
+        s = self.strings["progress_dialog"]
+        self.progress_dialog = QtWidgets.QProgressDialog(s["sending_label"], s["cancel_button"], 0, 100, self)
+        self.progress_dialog.setWindowTitle(s["sending_title"].format(dest_ip=dest_ip))
         self.progress_dialog.setWindowModality(QtCore.Qt.WindowModal) # type: ignore
         self.progress_dialog.show()
 
@@ -591,12 +609,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress_dialog.close()
             self.progress_dialog = None
         
-        QtWidgets.QMessageBox.information(self, "Transfer Complete", f"Successfully received {len(received_files)} items to ~/Received.")
+        QtWidgets.QMessageBox.information(self, self.strings["receive_complete_title"], self.strings["receive_complete_text"].format(count=len(received_files)))
         
         reply = QtWidgets.QMessageBox.question(
             self,
-            "Open Directory",
-            "Do you want to open the folder now?",
+            self.strings["open_folder_title"],
+            self.strings["open_folder_text"],
             QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
             QtWidgets.QMessageBox.StandardButton.Yes
         )
@@ -615,9 +633,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress_dialog = None
         
         if sent_files and sent_files[0] == "___DUKTO___TEXT___":
-            QtWidgets.QMessageBox.information(self, "Transfer Complete", "Text sent successfully.")
+            QtWidgets.QMessageBox.information(self, self.strings["send_complete_title"], self.strings["send_complete_text_single"])
         else:
-            QtWidgets.QMessageBox.information(self, "Transfer Complete", f"Successfully sent {len(sent_files)} items.")
+            QtWidgets.QMessageBox.information(self, self.strings["send_complete_title"], self.strings["send_complete_text"].format(count=len(sent_files)))
 
     @QtCore.Slot(str, int)
     def handle_receive_text(self, text: str, total_size: int):
@@ -625,7 +643,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress_dialog.close()
             self.progress_dialog = None
         
-        dialog = TextViewerDialog(text, self)
+        dialog = TextViewerDialog(text, self.strings, self)
         dialog.exec()
 
     @QtCore.Slot(str)
@@ -633,17 +651,18 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
-        QtWidgets.QMessageBox.critical(self, "Transfer Error", error_msg)
+        QtWidgets.QMessageBox.critical(self, self.strings["dukto_error_title"], self.strings["dukto_error_text"].format(error_msg=error_msg))
 
     def start_app_launcher(self):
-        self.app_launcher_dialog = AppLauncherDialog(self)
+        self.app_launcher_dialog = AppLauncherDialog(self.strings, self)
         self.app_launcher_dialog.move(QtGui.QCursor.pos())
         self.app_launcher_dialog.show()
 
     def start_file_search(self):
+        s = self.strings["file_search"]
         dialog = QtWidgets.QInputDialog(self)
-        dialog.setWindowTitle("File Search")
-        dialog.setLabelText("Enter search pattern:")
+        dialog.setWindowTitle(s["input_title"])
+        dialog.setLabelText(s["input_label"])
         dialog.move(QtGui.QCursor.pos())
         
         ok = dialog.exec()
@@ -654,37 +673,38 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
                 results = find(pattern, root='~')
             except RuntimeError as e:
-                QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
+                QtWidgets.QMessageBox.critical(self, s["search_error_title"], s["search_error_text"].format(e=e))
                 return
             finally:
                 QtWidgets.QApplication.restoreOverrideCursor()
 
             if results:
-                self.results_dialog = FileSearchResults(results, self)
+                self.results_dialog = FileSearchResults(results, self.strings, self)
                 self.results_dialog.show()
             else:
-                reply = QtWidgets.QMessageBox.question(self, "No Results", "Sorry, I couldn't find anything in your home folder. Would you like me to search the root folder?",
+                reply = QtWidgets.QMessageBox.question(self, s["no_results_title"], s["no_results_home_text"],
                                                        QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No, QtWidgets.QMessageBox.StandardButton.No)
                 if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                     try:
                         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)  # type: ignore
                         results = find(pattern, root='/')
                     except RuntimeError as e:
-                        QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
+                        QtWidgets.QMessageBox.critical(self, s["search_error_title"], s["search_error_text"].format(e=e))
                         return
                     finally:
                         QtWidgets.QApplication.restoreOverrideCursor()
 
                     if results:
-                        self.results_dialog = FileSearchResults(results, self)
+                        self.results_dialog = FileSearchResults(results, self.strings, self)
                         self.results_dialog.show()
                     else:
-                        QtWidgets.QMessageBox.information(self, "No Results", "Sorry, I couldn't find anything in the root folder either.")
+                        QtWidgets.QMessageBox.information(self, s["no_results_title"], s["no_results_root_text"])
 
     def start_web_search(self):
+        s = self.strings["web_search"]
         dialog = QtWidgets.QInputDialog(self)
-        dialog.setWindowTitle("Web Search")
-        dialog.setLabelText("Enter search query:")
+        dialog.setWindowTitle(s["input_title"])
+        dialog.setLabelText(s["input_label"])
         dialog.move(QtGui.QCursor.pos())
 
         ok = dialog.exec()
@@ -697,42 +717,48 @@ class MainWindow(QtWidgets.QMainWindow):
                 results = leta.search(query)
                 
                 if results and results.get('results'):
-                    self.web_results_dialog = WebSearchResults(results, self)
+                    self.web_results_dialog = WebSearchResults(results, self.strings, self)
                     self.web_results_dialog.show()
                 else:
-                    QtWidgets.QMessageBox.information(self, "No Results", "No web search results found.")
+                    QtWidgets.QMessageBox.information(self, s["no_results_title"], s["no_results_text"])
                     
             except Exception as e:
-                QtWidgets.QMessageBox.critical(self, "Search Error", str(e))
+                QtWidgets.QMessageBox.critical(self, s["search_error_title"], s["search_error_text"].format(e=e))
             finally:
                 QtWidgets.QApplication.restoreOverrideCursor()
 
     def update_git(self):
+        s = self.strings["main_window"]["updater"]
+
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
         update_available = is_update_available()
+        QtWidgets.QApplication.restoreOverrideCursor()
 
         if not update_available:
-            QtWidgets.QMessageBox.information(self, "No Updates", "You are already on the latest version.")
+            QtWidgets.QMessageBox.information(self, s["no_updates_title"], s["no_updates_text"])
             return
         else:
-            reply = QtWidgets.QMessageBox.question(self, "Update Available",
-                                                   "An update is available. Would you like to download and install it now?",
+            reply = QtWidgets.QMessageBox.question(self, s["update_available_title"],
+                                                   s["update_available_text"],
                                                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
                                                    QtWidgets.QMessageBox.StandardButton.Yes)
             if reply == QtWidgets.QMessageBox.StandardButton.No:
                 return
 
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
         status, message = update_repository()
+        QtWidgets.QApplication.restoreOverrideCursor()
         
         if status == "UPDATED":
-            reply = QtWidgets.QMessageBox.question(self, "Update Successful",
-                                                   f"{message}\n\nWould you like to restart now to apply the changes?",
+            reply = QtWidgets.QMessageBox.question(self, s["update_success_title"],
+                                                   s["update_success_text"].format(message=message),
                                                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
                                                    QtWidgets.QMessageBox.StandardButton.Yes)
             if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.restart_application()
             
         elif status == "FAILED":
-            QtWidgets.QMessageBox.critical(self, "Update Failed", message)
+            QtWidgets.QMessageBox.critical(self, s["update_failed_title"], s["update_failed_text"].format(message=message))
 
     def restart_application(self):
         presence.end()
@@ -749,13 +775,25 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("CLARA")
 
+    try:
+        with open(STRINGS_PATH, 'r', encoding='utf-8') as f:
+            strings = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error loading strings file: {e}")
+        error_dialog = QtWidgets.QMessageBox()
+        error_dialog.setIcon(QtWidgets.QMessageBox.Critical) #type: ignore
+        error_dialog.setText(f"Could not load required strings file from:\n{STRINGS_PATH}")
+        error_dialog.setWindowTitle("Fatal Error")
+        error_dialog.exec()
+        sys.exit(1)
+
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
     super_menu = not "--no-super" in sys.argv
     
     dukto_handler = DuktoProtocol()
     
-    pet = MainWindow(dukto_handler=dukto_handler, restart=restart, no_quit=no_quit, super_menu=super_menu)
+    pet = MainWindow(dukto_handler=dukto_handler, strings=strings, restart=restart, no_quit=no_quit, super_menu=super_menu)
     
     presence.start()
     
