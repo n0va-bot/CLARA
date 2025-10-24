@@ -546,7 +546,7 @@ class MainWindow(QtWidgets.QMainWindow):
             text_action_right.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
 
     def start_file_send(self, peer: Peer):
-        dialog_title = self.strings["send_files_dialog_title"].format(peer_signature=peer.signature)
+        dialog_title = self.strings["main_window"]["send_files_dialog_title"].format(peer_signature=peer.signature)
         file_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
             self,
             dialog_title,
@@ -556,8 +556,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dukto_handler.send_file(peer.address, file_paths, peer.port)
 
     def start_text_send(self, peer: Peer):
-        dialog_title = self.strings["send_text_dialog_title"].format(peer_signature=peer.signature)
-        dialog_label = self.strings["send_text_dialog_label"]
+        dialog_title = self.strings["main_window"]["send_text_dialog_title"].format(peer_signature=peer.signature)
+        dialog_label = self.strings["main_window"]["send_text_dialog_label"]
         text, ok = QtWidgets.QInputDialog.getMultiLineText(
             self,
             dialog_title,
@@ -569,8 +569,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def show_receive_confirmation(self, sender_ip: str):
         reply = QtWidgets.QMessageBox.question(
             self,
-            self.strings["receive_confirm_title"],
-            self.strings["receive_confirm_text"].format(sender_ip=sender_ip),
+            self.strings["main_window"]["receive_confirm_title"],
+            self.strings["main_window"]["receive_confirm_text"].format(sender_ip=sender_ip),
             QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
             QtWidgets.QMessageBox.StandardButton.No
         )
@@ -581,7 +581,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @QtCore.Slot(str)
     def handle_receive_start(self, sender_ip: str):
-        s = self.strings["progress_dialog"]
+        s = self.strings["main_window"]["progress_dialog"]
         self.progress_dialog = QtWidgets.QProgressDialog(s["receiving_label"], s["cancel_button"], 0, 100, self)
         self.progress_dialog.setWindowTitle(s["receiving_title"].format(sender_ip=sender_ip))
         self.progress_dialog.setWindowModality(QtCore.Qt.WindowModal) # type: ignore
@@ -589,7 +589,7 @@ class MainWindow(QtWidgets.QMainWindow):
     
     @QtCore.Slot(str)
     def handle_send_start(self, dest_ip: str):
-        s = self.strings["progress_dialog"]
+        s = self.strings["main_window"]["progress_dialog"]
         self.progress_dialog = QtWidgets.QProgressDialog(s["sending_label"], s["cancel_button"], 0, 100, self)
         self.progress_dialog.setWindowTitle(s["sending_title"].format(dest_ip=dest_ip))
         self.progress_dialog.setWindowModality(QtCore.Qt.WindowModal) # type: ignore
@@ -608,12 +608,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress_dialog.close()
             self.progress_dialog = None
         
-        QtWidgets.QMessageBox.information(self, self.strings["receive_complete_title"], self.strings["receive_complete_text"].format(count=len(received_files)))
+        s = self.strings["main_window"]
+        QtWidgets.QMessageBox.information(self, s["receive_complete_title"], s["receive_complete_text"].format(count=len(received_files)))
         
         reply = QtWidgets.QMessageBox.question(
             self,
-            self.strings["open_folder_title"],
-            self.strings["open_folder_text"],
+            s["open_folder_title"],
+            s["open_folder_text"],
             QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
             QtWidgets.QMessageBox.StandardButton.Yes
         )
@@ -631,10 +632,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress_dialog.close()
             self.progress_dialog = None
         
+        s = self.strings["main_window"]
         if sent_files and sent_files[0] == "___DUKTO___TEXT___":
-            QtWidgets.QMessageBox.information(self, self.strings["send_complete_title"], self.strings["send_complete_text_single"])
+            QtWidgets.QMessageBox.information(self, s["send_complete_title"], s["send_complete_text_single"])
         else:
-            QtWidgets.QMessageBox.information(self, self.strings["send_complete_title"], self.strings["send_complete_text"].format(count=len(sent_files)))
+            QtWidgets.QMessageBox.information(self, s["send_complete_title"], s["send_complete_text"].format(count=len(sent_files)))
 
     @QtCore.Slot(str, int)
     def handle_receive_text(self, text: str, total_size: int):
@@ -650,7 +652,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
-        QtWidgets.QMessageBox.critical(self, self.strings["dukto_error_title"], self.strings["dukto_error_text"].format(error_msg=error_msg))
+        QtWidgets.QMessageBox.critical(self, self.strings["main_window"]["dukto_error_title"], self.strings["main_window"]["dukto_error_text"].format(error_msg=error_msg))
 
     def start_app_launcher(self):
         self.app_launcher_dialog = AppLauncherDialog(self.strings, self)
@@ -772,8 +774,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
-    app.setApplicationName("CLARA")
-
+    
     try:
         with open(STRINGS_PATH, 'r', encoding='utf-8') as f:
             strings = json.load(f)
@@ -785,6 +786,8 @@ def main():
         error_dialog.setWindowTitle("Fatal Error")
         error_dialog.exec()
         sys.exit(1)
+        
+    app.setApplicationName("CLARA")
 
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
