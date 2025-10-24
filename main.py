@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import sys, os, subprocess, socket
+import sys, os, subprocess
 from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 from pynput import keyboard
@@ -9,7 +9,6 @@ from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
 from core.app_launcher import list_apps, launch
 from core.updater import update_repository, is_update_available
-from core.dukto import DuktoProtocol, Peer
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -319,14 +318,6 @@ class WebSearchResults(QtWidgets.QDialog):
 
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
-    # Dukto signals for thread-safety
-    peer_added_signal = QtCore.Signal(object)
-    peer_removed_signal = QtCore.Signal(object)
-    incoming_connection_signal = QtCore.Signal(str, object)
-    dukto_error_signal = QtCore.Signal(str)
-    transfer_progress_signal = QtCore.Signal(int, int)
-    transfer_complete_signal = QtCore.Signal(str)
-    text_received_signal = QtCore.Signal(str, str)
 
     def __init__(self, restart=False, no_quit=False, super_menu=True):
         super().__init__()
@@ -353,7 +344,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMask(mask)
 
         self.super_menu = super_menu
-        self.progress_dialog = None
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
@@ -363,8 +353,6 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addAction("Launch App", self.start_app_launcher)
         right_menu.addAction("Search Files", self.start_file_search)
         right_menu.addAction("Search Web", self.start_web_search)
-        self.dukto_peers_menu_right = right_menu.addMenu("Dukto")
-        self.dukto_peers_menu_right.setEnabled(False)
         right_menu.addSeparator()
         right_menu.addAction("Check for updates", self.update_git)
         if restart:
@@ -372,7 +360,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addAction("Hide/Show", self.toggle_visible)
         right_menu.addSeparator()
         if not no_quit:
-            right_menu.addAction("Quit", self.quit_application)
+            right_menu.addAction("Quit", QtWidgets.QApplication.quit)
         self.tray.setContextMenu(right_menu)
         self.tray.activated.connect(self.handle_tray_activated)
         self.tray.show()
@@ -382,11 +370,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.left_menu.addAction("Launch App", self.start_app_launcher)
         self.left_menu.addAction("Search Files", self.start_file_search)
         self.left_menu.addAction("Search Web", self.start_web_search)
-        self.dukto_peers_menu_left = self.left_menu.addMenu("Dukto")
-        self.dukto_peers_menu_left.setEnabled(False)
-
-        # Dukto peer menu storage
-        self.dukto_peer_menus = {}
 
         # always on top timer
         self.stay_on_top_timer = QtCore.QTimer(self)
@@ -396,43 +379,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # Super key
         self.show_menu_signal.connect(self.show_menu)
         self.start_hotkey_listener()
-
-        # Init Dukto Protocol
-        self.init_dukto()
-
-    def init_dukto(self):
-        self.dukto = DuktoProtocol()
-        
-        # Connect signals to slots
-        self.peer_added_signal.connect(self.add_dukto_peer_slot)
-        self.peer_removed_signal.connect(self.remove_dukto_peer_slot)
-        self.incoming_connection_signal.connect(self.handle_incoming_transfer_slot)
-        self.dukto_error_signal.connect(self.handle_dukto_error_slot)
-        self.transfer_progress_signal.connect(self.update_transfer_progress_slot)
-        self.transfer_complete_signal.connect(self.finish_transfer_slot)
-        self.text_received_signal.connect(self.show_received_text_slot)
-
-        # Assign callbacks that emit signals
-        self.dukto.on_peer_added = lambda peer: self.peer_added_signal.emit(peer)
-        self.dukto.on_peer_removed = lambda peer: self.peer_removed_signal.emit(peer)
-        self.dukto.on_incoming_connection = lambda ip, conn: self.incoming_connection_signal.emit(ip, conn)
-        self.dukto.on_error = lambda msg: self.dukto_error_signal.emit(msg)
-        
-        def on_receive_start(sender_ip):
-            peer_name = self.dukto.peers.get(sender_ip, Peer(sender_ip, sender_ip)).signature
-            # Use QTimer to ensure this runs on the main thread
-            QtCore.QTimer.singleShot(0, lambda: self.start_transfer_progress_slot(f"Receiving from {peer_name}..."))
-        self.dukto.on_receive_start = on_receive_start
-
-        self.dukto.on_transfer_progress = lambda total, current: self.transfer_progress_signal.emit(current, total)
-        self.dukto.on_receive_complete = lambda files, size: self.transfer_complete_signal.emit("Files received successfully!")
-        self.dukto.on_send_complete = lambda files: self.transfer_complete_signal.emit("Files sent successfully!")
-        self.dukto.on_receive_text = lambda text, size: self.text_received_signal.emit(
-            self.dukto.peers.get("unknown", Peer("unknown", "An unknown user")).signature, text
-        )
-
-        self.dukto.initialize()
-        self.dukto.say_hello()
 
     def show_menu(self):
         self.left_menu.popup(QtGui.QCursor.pos())
@@ -572,98 +518,13 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Update Failed", message)
 
     def restart_application(self):
-        self.dukto.shutdown()
         presence.end()
+        
         args = [sys.executable] + sys.argv
+
         subprocess.Popen(args)
-        QtWidgets.QApplication.quit()
-    
-    def quit_application(self):
-        self.dukto.shutdown()
-        QtWidgets.QApplication.quit()
-
-    # --- Dukto Slots ---
-    def add_dukto_peer_slot(self, peer: Peer):
-        if not self.dukto_peers_menu_left.isEnabled():
-            self.dukto_peers_menu_left.setEnabled(True)
-            self.dukto_peers_menu_right.setEnabled(True)
-
-        peer_menu_left = QtWidgets.QMenu(peer.signature, self.dukto_peers_menu_left)
-        peer_menu_right = QtWidgets.QMenu(peer.signature, self.dukto_peers_menu_right)
-
-        for menu in [peer_menu_left, peer_menu_right]:
-            send_files_action = menu.addAction("Send Files...")
-            send_files_action.triggered.connect(lambda: self.send_files_to_peer(peer))
-            send_text_action = menu.addAction("Send Text...")
-            send_text_action.triggered.connect(lambda: self.send_text_to_peer(peer))
         
-        self.dukto_peers_menu_left.addMenu(peer_menu_left)
-        self.dukto_peers_menu_right.addMenu(peer_menu_right)
-        self.dukto_peer_menus[peer.address] = (peer_menu_left, peer_menu_right)
-
-    def remove_dukto_peer_slot(self, peer: Peer):
-        if peer.address in self.dukto_peer_menus:
-            menus = self.dukto_peer_menus.pop(peer.address)
-            self.dukto_peers_menu_left.removeAction(menus[0].menuAction())
-            self.dukto_peers_menu_right.removeAction(menus[1].menuAction())
-
-        if not self.dukto_peer_menus:
-            self.dukto_peers_menu_left.setEnabled(False)
-            self.dukto_peers_menu_right.setEnabled(False)
-
-    def handle_incoming_transfer_slot(self, sender_ip: str, conn: socket.socket):
-        peer = self.dukto.peers.get(sender_ip)
-        peer_name = peer.signature if peer else sender_ip
-
-        reply = QtWidgets.QMessageBox.question(self, "Incoming Transfer",
-                                               f"Accept incoming files from {peer_name}?",
-                                               QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-                                               QtWidgets.QMessageBox.StandardButton.Yes)
-        
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-            self.dukto.start_receiving(conn, sender_ip)
-        else:
-            conn.close()
-
-    def send_files_to_peer(self, peer: Peer):
-        file_dialog = QtWidgets.QFileDialog(self)
-        file_dialog.setFileMode(QtWidgets.QFileDialog.FileMode.ExistingFiles)
-        if file_dialog.exec():
-            files = file_dialog.selectedFiles()
-            if files:
-                self.start_transfer_progress_slot(f"Sending to {peer.signature}...")
-                self.dukto.send_file(peer.address, files, peer.port)
-
-    def send_text_to_peer(self, peer: Peer):
-        text, ok = QtWidgets.QInputDialog.getMultiLineText(self, "Send Text", f"Enter text to send to {peer.signature}:")
-        if ok and text:
-            self.dukto.send_text(peer.address, text, peer.port)
-            
-    def handle_dukto_error_slot(self, message: str):
-        QtWidgets.QMessageBox.critical(self, "Dukto Error", message)
-        if self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-
-    def start_transfer_progress_slot(self, title: str):
-        self.progress_dialog = QtWidgets.QProgressDialog(title, "Cancel", 0, 100, self)
-        self.progress_dialog.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
-        self.progress_dialog.setValue(0)
-        self.progress_dialog.show()
-
-    def update_transfer_progress_slot(self, current: int, total: int):
-        if self.progress_dialog:
-            self.progress_dialog.setMaximum(total)
-            self.progress_dialog.setValue(current)
-
-    def finish_transfer_slot(self, message: str):
-        if self.progress_dialog:
-            self.progress_dialog.close()
-            self.progress_dialog = None
-        QtWidgets.QMessageBox.information(self, "Transfer Complete", message)
-
-    def show_received_text_slot(self, sender_name: str, text: str):
-        QtWidgets.QMessageBox.information(self, f"Text from {sender_name}", text)
+        QtWidgets.QApplication.quit()
 
 
 def main():
@@ -686,7 +547,6 @@ def main():
     pet.show()
 
     app.aboutToQuit.connect(presence.end)
-    app.aboutToQuit.connect(pet.dukto.shutdown)
     sys.exit(app.exec())
 
 

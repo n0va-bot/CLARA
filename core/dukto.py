@@ -46,7 +46,6 @@ class DuktoProtocol:
         self.on_send_complete: Optional[Callable[[List[str]], None]] = None
         self.on_transfer_progress: Optional[Callable[[int, int], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
-        self.on_incoming_connection: Optional[Callable[[str, socket.socket], None]] = None
         
     def set_ports(self, udp_port: int, tcp_port: int):
         self.local_udp_port = udp_port
@@ -193,21 +192,11 @@ class DuktoProtocol:
                     conn.close()
                     continue
                 
-                if self.on_incoming_connection:
-                    # Pass the connection to the handler to decide
-                    self.on_incoming_connection(addr[0], conn)
-                else:
-                    # Auto-reject if no handler is set
-                    conn.close()
-
+                threading.Thread(target=self._receive_files,
+                               args=(conn, addr[0]), daemon=True).start()
             except Exception as e:
                 if self.running:
                     print(f"TCP listener error: {e}")
-
-    def start_receiving(self, conn: socket.socket, sender_ip: str):
-        """Starts the receiving process on an already accepted connection."""
-        threading.Thread(target=self._receive_files,
-                       args=(conn, sender_ip), daemon=True).start()
     
     def _receive_files(self, conn: socket.socket, sender_ip: str):
         self.is_receiving = True
