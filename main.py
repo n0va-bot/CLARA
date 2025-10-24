@@ -2,11 +2,12 @@
 import sys, os, subprocess
 from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
+from pynput import keyboard
 
 from core.file_search import find
 from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
-from core.app_launcher import list_apps, launch, App
+from core.app_launcher import list_apps, launch
 from core.updater import update_repository
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
@@ -28,7 +29,7 @@ class AppLauncherDialog(QtWidgets.QDialog):
         
         # Apps list widget
         self.list_widget = QtWidgets.QListWidget()
-        self.list_widget.itemDoubleClicked.connect(self.launch_app)
+        self.list_widget.itemClicked.connect(self.launch_app)
         layout.addWidget(self.list_widget)
         
         # Buttons
@@ -319,6 +320,8 @@ class WebSearchResults(QtWidgets.QDialog):
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    show_menu_signal = QtCore.Signal()
+
     def __init__(self, restart=False, no_quit=False):
         super().__init__()
 
@@ -372,6 +375,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stay_on_top_timer = QtCore.QTimer(self)
         self.stay_on_top_timer.timeout.connect(self.ensure_on_top)
         self.stay_on_top_timer.start(1000)
+
+        # Super key
+        self.show_menu_signal.connect(self.show_menu)
+        self.start_hotkey_listener()
+
+    def show_menu(self):
+        self.left_menu.popup(QtGui.QCursor.pos())
+
+    def on_press(self, key):
+        if key == keyboard.Key.cmd:
+            self.show_menu_signal.emit()
+
+    def start_hotkey_listener(self):
+        self.listener = keyboard.Listener(on_press=self.on_press)
+        self.listener.start()
+
+    def closeEvent(self, event):
+        self.listener.stop()
+        super().closeEvent(event)
 
     def ensure_on_top(self):
         if self.isVisible():
