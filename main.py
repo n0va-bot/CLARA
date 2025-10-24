@@ -9,8 +9,143 @@ from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
 from core.app_launcher import list_apps, launch
 from core.updater import update_repository, is_update_available
+from core.dukto import DuktoProtocol, Peer
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
+
+class DuktoDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("LAN Transfer (Dukto)")
+        self.setMinimumSize(600, 400)
+
+        # Dukto Protocol Backend
+        self.protocol = DuktoProtocol()
+        self.setup_callbacks()
+
+        # UI Elements
+        self.peer_list_widget = QtWidgets.QListWidget()
+        self.send_file_button = QtWidgets.QPushButton("Send File(s)")
+        self.send_text_button = QtWidgets.QPushButton("Send Text")
+        self.refresh_button = QtWidgets.QPushButton("Refresh")
+        self.progress_bar = QtWidgets.QProgressBar()
+        
+        # Layout
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(QtWidgets.QLabel("Discovered Peers:"))
+        layout.addWidget(self.peer_list_widget)
+
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(self.refresh_button)
+        button_layout.addStretch()
+        button_layout.addWidget(self.send_text_button)
+        button_layout.addWidget(self.send_file_button)
+        layout.addLayout(button_layout)
+        layout.addWidget(self.progress_bar)
+
+        self.progress_bar.hide()
+
+        # Connect signals
+        self.refresh_button.clicked.connect(self.refresh_peers)
+        self.send_file_button.clicked.connect(self.send_files)
+        self.send_text_button.clicked.connect(self.send_text)
+
+        # Initialize Dukto
+        self.protocol.initialize()
+        self.refresh_peers()
+
+    def setup_callbacks(self):
+        self.protocol.on_peer_added = self.add_peer
+        self.protocol.on_peer_removed = self.remove_peer
+        self.protocol.on_receive_start = lambda ip: self.show_progress()
+        self.protocol.on_transfer_progress = self.update_progress
+        self.protocol.on_receive_text = self.handle_received_text
+        self.protocol.on_receive_complete = self.handle_receive_complete
+        self.protocol.on_send_complete = lambda files: self.progress_bar.hide()
+        self.protocol.on_error = self.handle_error
+
+    @QtCore.Slot(Peer)
+    def add_peer(self, peer: Peer):
+        # Check if peer already exists
+        for i in range(self.peer_list_widget.count()):
+            item = self.peer_list_widget.item(i)
+            if item.data(QtCore.Qt.UserRole).address == peer.address: # type: ignore
+                return
+
+        item = QtWidgets.QListWidgetItem(f"{peer.signature} ({peer.address})")
+        item.setData(QtCore.Qt.UserRole, peer) # type: ignore
+        self.peer_list_widget.addItem(item)
+
+    @QtCore.Slot(Peer)
+    def remove_peer(self, peer: Peer):
+        for i in range(self.peer_list_widget.count()):
+            item = self.peer_list_widget.item(i)
+            if item and item.data(QtCore.Qt.UserRole).address == peer.address: # type: ignore
+                self.peer_list_widget.takeItem(i)
+                break
+
+    def refresh_peers(self):
+        self.peer_list_widget.clear()
+        self.protocol.peers.clear()
+        self.protocol.say_hello()
+
+    def get_selected_peer(self) -> Peer | None:
+        selected_items = self.peer_list_widget.selectedItems()
+        if not selected_items:
+            QtWidgets.QMessageBox.warning(self, "No Peer Selected", "Please select a peer from the list.")
+            return None
+        return selected_items[0].data(QtCore.Qt.UserRole) # type: ignore
+
+    def send_files(self):
+        peer = self.get_selected_peer()
+        if not peer:
+            return
+
+        files, _ = QtWidgets.QFileDialog.getOpenFileNames(self, "Select Files to Send")
+        if files:
+            self.show_progress()
+            self.protocol.send_file(peer.address, files, peer.port)
+
+    def send_text(self):
+        peer = self.get_selected_peer()
+        if not peer:
+            return
+
+        text, ok = QtWidgets.QInputDialog.getMultiLineText(self, "Send Text", "Enter text to send:")
+        if ok and text:
+            self.show_progress()
+            self.protocol.send_text(peer.address, text, peer.port)
+
+    def show_progress(self):
+        self.progress_bar.setValue(0)
+        self.progress_bar.show()
+
+    @QtCore.Slot(int, int)
+    def update_progress(self, total_size, transferred):
+        if total_size > 0:
+            percentage = int((transferred / total_size) * 100)
+            self.progress_bar.setValue(percentage)
+
+    @QtCore.Slot(str, int)
+    def handle_received_text(self, text, size):
+        self.progress_bar.hide()
+        QtWidgets.QMessageBox.information(self, "Text Received", text)
+
+    @QtCore.Slot(list, int)
+    def handle_receive_complete(self, files, size):
+        self.progress_bar.hide()
+        msg = f"Received {len(files)} file(s) successfully.\nThey are located in the application's directory."
+        QtWidgets.QMessageBox.information(self, "Transfer Complete", msg)
+
+    @QtCore.Slot(str)
+    def handle_error(self, error_message):
+        self.progress_bar.hide()
+        QtWidgets.QMessageBox.critical(self, "Transfer Error", error_message)
+
+    def closeEvent(self, event):
+        self.protocol.shutdown()
+        super().closeEvent(event)
+
 
 class AppLauncherDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
@@ -353,6 +488,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addAction("Launch App", self.start_app_launcher)
         right_menu.addAction("Search Files", self.start_file_search)
         right_menu.addAction("Search Web", self.start_web_search)
+        right_menu.addAction("LAN Transfer (Dukto)", self.start_dukto)
         right_menu.addSeparator()
         right_menu.addAction("Check for updates", self.update_git)
         if restart:
@@ -370,6 +506,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.left_menu.addAction("Launch App", self.start_app_launcher)
         self.left_menu.addAction("Search Files", self.start_file_search)
         self.left_menu.addAction("Search Web", self.start_web_search)
+        self.left_menu.addAction("LAN Transfer (Dukto)", self.start_dukto)
 
         # always on top timer
         self.stay_on_top_timer = QtCore.QTimer(self)
@@ -422,6 +559,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.app_launcher_dialog = AppLauncherDialog(self)
         self.app_launcher_dialog.move(QtGui.QCursor.pos())
         self.app_launcher_dialog.show()
+
+    def start_dukto(self):
+        self.dukto_dialog = DuktoDialog(self)
+        self.dukto_dialog.move(QtGui.QCursor.pos())
+        self.dukto_dialog.show()
 
     def start_file_search(self):
         dialog = QtWidgets.QInputDialog(self)
