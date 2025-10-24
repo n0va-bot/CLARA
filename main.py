@@ -406,8 +406,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dukto_handler.on_error = lambda msg: self.dukto_error_signal.emit(msg)
         
         # Connect signals to GUI slots
-        self.peer_added_signal.connect(self.handle_peer_added)
-        self.peer_removed_signal.connect(self.handle_peer_removed)
+        self.peer_added_signal.connect(self.update_peer_menus)
+        self.peer_removed_signal.connect(self.update_peer_menus)
         self.receive_request_signal.connect(self.show_receive_confirmation)
         self.progress_update_signal.connect(self.update_progress_dialog)
         self.receive_start_signal.connect(self.handle_receive_start)
@@ -426,7 +426,9 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addAction("Search Files", self.start_file_search)
         right_menu.addAction("Search Web", self.start_web_search)
         right_menu.addSeparator()
-        self.send_menu_right = right_menu.addMenu("Send to")
+        send_menu_right = right_menu.addMenu("Send")
+        self.send_files_submenu_right = send_menu_right.addMenu("Send File(s)")
+        self.send_text_submenu_right = send_menu_right.addMenu("Send Text")
         right_menu.addSeparator()
         right_menu.addAction("Check for updates", self.update_git)
         if restart:
@@ -445,7 +447,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.left_menu.addAction("Search Files", self.start_file_search)
         self.left_menu.addAction("Search Web", self.start_web_search)
         self.left_menu.addSeparator()
-        self.send_menu_left = self.left_menu.addMenu("Send to")
+        send_menu_left = self.left_menu.addMenu("Send")
+        self.send_files_submenu_left = send_menu_left.addMenu("Send File(s)")
+        self.send_text_submenu_left = send_menu_left.addMenu("Send Text")
         
         self.update_peer_menus()
 
@@ -496,41 +500,38 @@ class MainWindow(QtWidgets.QMainWindow):
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
 
-    @QtCore.Slot(Peer)
-    def handle_peer_added(self, peer: Peer):
-        self.update_peer_menus()
-
-    @QtCore.Slot(Peer)
-    def handle_peer_removed(self, peer: Peer):
-        self.update_peer_menus()
-
     def update_peer_menus(self):
-        self.send_menu_left.clear()
-        self.send_menu_right.clear()
-        
+        self.send_files_submenu_left.clear()
+        self.send_text_submenu_left.clear()
+        self.send_files_submenu_right.clear()
+        self.send_text_submenu_right.clear()
+
         peers = list(self.dukto_handler.peers.values())
-        
+
         if not peers:
-            self.send_menu_left.addAction("No peers found").setEnabled(False)
-            self.send_menu_right.addAction("No peers found").setEnabled(False)
+            no_peers_action_left_files = self.send_files_submenu_left.addAction("No peers found")
+            no_peers_action_left_files.setEnabled(False)
+            no_peers_action_left_text = self.send_text_submenu_left.addAction("No peers found")
+            no_peers_action_left_text.setEnabled(False)
+            
+            no_peers_action_right_files = self.send_files_submenu_right.addAction("No peers found")
+            no_peers_action_right_files.setEnabled(False)
+            no_peers_action_right_text = self.send_text_submenu_right.addAction("No peers found")
+            no_peers_action_right_text.setEnabled(False)
             return
 
         for peer in sorted(peers, key=lambda p: p.signature):
-            peer_submenu_left = self.send_menu_left.addMenu(peer.signature)
-            peer_submenu_right = self.send_menu_right.addMenu(peer.signature)
-
-            send_files_action_left = peer_submenu_left.addAction("Send File(s)")
-            send_text_action_left = peer_submenu_left.addAction("Send Text")
+            file_action_left = self.send_files_submenu_left.addAction(peer.signature)
+            file_action_right = self.send_files_submenu_right.addAction(peer.signature)
             
-            send_files_action_right = peer_submenu_right.addAction("Send File(s)")
-            send_text_action_right = peer_submenu_right.addAction("Send Text")
+            text_action_left = self.send_text_submenu_left.addAction(peer.signature)
+            text_action_right = self.send_text_submenu_right.addAction(peer.signature)
 
-            # Use a lambda with a default argument to capture the correct peer object
-            send_files_action_left.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
-            send_text_action_left.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
+            file_action_left.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
+            file_action_right.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
             
-            send_files_action_right.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
-            send_text_action_right.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
+            text_action_left.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
+            text_action_right.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
 
     def start_file_send(self, peer: Peer):
         file_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
