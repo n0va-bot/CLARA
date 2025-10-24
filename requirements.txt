@@ -1,0 +1,6 @@
+PySide6
+pynput
+requests
+beautifulsoup4
+GitPython
+discord-rpc
