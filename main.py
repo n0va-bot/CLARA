@@ -477,6 +477,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if not update_available:
             QtWidgets.QMessageBox.information(self, "No Updates", "You are already on the latest version.")
             return
+        else:
+            reply = QtWidgets.QMessageBox.question(self, "Update Available",
+                                                   "An update is available. Would you like to download and install it now?",
+                                                   QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                                                   QtWidgets.QMessageBox.StandardButton.Yes)
+            if reply == QtWidgets.QMessageBox.StandardButton.No:
+                return
 
         status, message = update_repository()
         
