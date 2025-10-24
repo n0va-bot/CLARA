@@ -1,4 +1,5 @@
 import time
+import threading
 from discordrp import Presence
 
 class DiscordPresence:
@@ -7,61 +8,89 @@ class DiscordPresence:
         self.presence = None
         self.running = False
         self.start_time = None
-    
+        self._thread = None
+        self._stop_thread = threading.Event()
+
     def start(self):
-        """Start the Discord Rich Presence"""
         if self.running:
             print("Presence is already running")
             return
         
-        self.start_time = int(time.time())
-        self.presence = Presence(self.client_id)
-        self.presence.__enter__()
-        
-        self.presence.set(
-            {
-                "assets": {
-                    "large_image": "2ktanbig",
-                    "large_text": "CLARA"
-                },
-                "buttons": [
-                    {
-                        "label": "Let CLARA help you!",
-                        "url": "https://github.com/n0va-bot/CLARA"
-                    }
-                ]
-            }
-        )
-        
         self.running = True
-        print("Discord presence started")
-    
-    def end(self):
-        """Stop the Discord Rich Presence"""
-        if not self.running:
-            print("Presence is not running")
+        self._stop_thread.clear()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        print("Discord presence manager started")
+
+    def _run_loop(self):
+        while not self._stop_thread.is_set():
+            try:
+                with Presence(self.client_id) as presence:
+                    self.presence = presence
+                    print("Successfully connected to Discord RPC.")
+                    self.start_time = int(time.time())
+                    self._set_initial_presence()
+
+                    while not self._stop_thread.is_set():
+                        time.sleep(15)
+            
+            except Exception as e:
+                self.presence = None
+                print(f"Failed to connect to Discord RPC: {e}. Retrying in 30 seconds...")
+                
+                for _ in range(30):
+                    if self._stop_thread.is_set():
+                        break
+                    time.sleep(1)
+        
+        self.presence = None
+
+    def _set_initial_presence(self):
+        if not self.presence:
             return
         
         try:
-            if self.presence:
-                self.presence.__exit__(None, None, None)
-                self.presence = None
+            self.presence.set(
+                {
+                    "assets": {
+                        "large_image": "2ktanbig",
+                        "large_text": "CLARA"
+                    },
+                    "buttons": [
+                        {
+                            "label": "Let CLARA help you!",
+                            "url": "https://github.com/n0va-bot/CLARA"
+                        }
+                    ]
+                }
+            )
         except Exception as e:
-            print(f"Error closing presence: {e}")
-        finally:
-            self.running = False
-            print("Discord presence stopped")
-    
+            print(f"Failed to set initial Discord presence: {e}")
+
+    def end(self):
+        if not self.running:
+            print("Presence is not running")
+            return
+
+        print("Stopping Discord presence...")
+        self._stop_thread.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=5)
+        
+        self.running = False
+        self.presence = None
+        print("Discord presence stopped")
+
     def update(self, data):
-        """Update the presence with new data"""
         if not self.running or not self.presence:
-            print("Presence is not running. Call start() first.")
             return
         
-        self.presence.set(data)
-    
+        try:
+            self.presence.set(data)
+        except Exception as e:
+            print(f"Failed to update Discord presence: {e}")
+
     def __del__(self):
-        """Cleanup when object is destroyed"""
         if self.running:
             self.end()
 

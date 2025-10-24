@@ -5,7 +5,9 @@ files = [
     "core/headers.py",
     "core/updater.py",
     "core/web_search.py",
-    "main.py"
+    "main.py",
+    "README.md",
+    "requirements.txt"
 ]
 
 codeblock = "```"

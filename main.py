@@ -362,6 +362,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not no_quit:
             right_menu.addAction("Quit", QtWidgets.QApplication.quit)
         self.tray.setContextMenu(right_menu)
+        self.tray.activated.connect(self.handle_tray_activated)
         self.tray.show()
 
         # LEFT MENU
@@ -410,15 +411,26 @@ class MainWindow(QtWidgets.QMainWindow):
         elif event.button() == QtCore.Qt.RightButton:                   #type: ignore
             self.tray.contextMenu().popup(event.globalPosition().toPoint())
 
+    def handle_tray_activated(self, reason):
+        if reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger:
+            self.left_menu.popup(QtGui.QCursor.pos())
+
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
 
     def start_app_launcher(self):
         self.app_launcher_dialog = AppLauncherDialog(self)
+        self.app_launcher_dialog.move(QtGui.QCursor.pos())
         self.app_launcher_dialog.show()
 
     def start_file_search(self):
-        pattern, ok = QtWidgets.QInputDialog.getText(self, "File Search", "Enter search pattern:")
+        dialog = QtWidgets.QInputDialog(self)
+        dialog.setWindowTitle("File Search")
+        dialog.setLabelText("Enter search pattern:")
+        dialog.move(QtGui.QCursor.pos())
+        
+        ok = dialog.exec()
+        pattern = dialog.textValue()
         
         if ok and pattern:
             try:
@@ -453,7 +465,14 @@ class MainWindow(QtWidgets.QMainWindow):
                         QtWidgets.QMessageBox.information(self, "No Results", "Sorry, I couldn't find anything in the root folder either.")
 
     def start_web_search(self):
-        query, ok = QtWidgets.QInputDialog.getText(self, "Web Search", "Enter search query:")        
+        dialog = QtWidgets.QInputDialog(self)
+        dialog.setWindowTitle("Web Search")
+        dialog.setLabelText("Enter search query:")
+        dialog.move(QtGui.QCursor.pos())
+
+        ok = dialog.exec()
+        query = dialog.textValue()
+        
         if ok and query:
             try:
                 QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
@@ -527,7 +546,6 @@ def main():
 
     pet.show()
 
-    # Gracefully handle shutdown
     app.aboutToQuit.connect(presence.end)
     sys.exit(app.exec())
 
