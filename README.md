@@ -12,4 +12,12 @@ A ***very*** WIP desktop assistant for X11-based desktops.
 - Updater (git)
 - Super key menu
 
+## Instructions
+1. Clone this repository
+2. Install all of the modules from `requirements.txt`, either with `pip install -r requirements.txt` or via your distribution's package manager
+3. Launch `main.py`. Available options:
+     - `--restart` Add a restart option to the right click menu
+     - `--no-quit` Hide the quit option
+     - `--no-super` Disable the super key menu
+
 If you want to contribute in any way, PRs (and issues) welcome
