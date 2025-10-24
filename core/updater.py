@@ -3,6 +3,24 @@ from pathlib import Path
 
 REPO_DIR = Path(__file__).parent.parent
 
+def is_update_available():
+    try:
+        if not (REPO_DIR / ".git").exists():
+            return False
+
+        repo = Repo(REPO_DIR)
+        origin = repo.remotes.origin
+        
+        origin.fetch()
+        local_commit = repo.head.commit
+        remote_commit = origin.refs[repo.active_branch.name].commit
+        
+        return local_commit != remote_commit
+    except GitCommandError:
+        return False
+    except Exception:
+        return False
+
 def update_repository():
     try:
         if not (REPO_DIR / ".git").exists():
@@ -10,14 +28,6 @@ def update_repository():
 
         repo = Repo(REPO_DIR)
         origin = repo.remotes.origin
-        
-        origin.fetch()
-        
-        local_commit = repo.head.commit
-        remote_commit = origin.refs[repo.active_branch.name].commit
-        
-        if local_commit == remote_commit:
-            return "UP_TO_DATE", "You are already on the latest version."
         
         origin.pull()
         

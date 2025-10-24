@@ -8,7 +8,7 @@ from core.file_search import find
 from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
 from core.app_launcher import list_apps, launch
-from core.updater import update_repository
+from core.updater import update_repository, is_update_available
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -472,6 +472,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QApplication.restoreOverrideCursor()
 
     def update_git(self):
+        update_available = is_update_available()
+
+        if not update_available:
+            QtWidgets.QMessageBox.information(self, "No Updates", "You are already on the latest version.")
+            return
+
         status, message = update_repository()
         
         if status == "UPDATED":
@@ -481,9 +487,6 @@ class MainWindow(QtWidgets.QMainWindow):
                                                    QtWidgets.QMessageBox.StandardButton.Yes)
             if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                 self.restart_application()
-        
-        elif status == "UP_TO_DATE":
-            QtWidgets.QMessageBox.information(self, "No Updates", message)
             
         elif status == "FAILED":
             QtWidgets.QMessageBox.critical(self, "Update Failed", message)
