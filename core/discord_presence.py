@@ -75,7 +75,7 @@ class DiscordPresence:
         print("Stopping Discord presence...")
         self._stop_thread.set()
         if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=5)
+            self._thread.join(timeout=1)
         
         self.running = False
         self.presence = None

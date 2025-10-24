@@ -317,6 +317,38 @@ class WebSearchResults(QtWidgets.QDialog):
             QtWidgets.QApplication.restoreOverrideCursor()
 
 
+class TextViewerDialog(QtWidgets.QDialog):
+    def __init__(self, text, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Text Received")
+        self.setMinimumSize(400, 300)
+
+        self.text_to_copy = text
+        layout = QtWidgets.QVBoxLayout(self)
+
+        self.text_edit = QtWidgets.QTextEdit()
+        self.text_edit.setPlainText(text)
+        self.text_edit.setReadOnly(True)
+        layout.addWidget(self.text_edit)
+
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+
+        copy_button = QtWidgets.QPushButton("Copy to Clipboard")
+        copy_button.clicked.connect(self.copy_text)
+        button_layout.addWidget(copy_button)
+
+        close_button = QtWidgets.QPushButton("Close")
+        close_button.clicked.connect(self.accept)
+        button_layout.addWidget(close_button)
+
+        layout.addLayout(button_layout)
+
+    def copy_text(self):
+        clipboard = QtWidgets.QApplication.clipboard()
+        clipboard.setText(self.text_to_copy)
+
+
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
     
@@ -481,17 +513,27 @@ class MainWindow(QtWidgets.QMainWindow):
         
         QtWidgets.QMessageBox.information(self, "Transfer Complete", f"Successfully received {len(received_files)} items to ~/Received.")
         
-        # Open the directory
-        receive_dir = str(Path.home() / "Received")
-        url = QtCore.QUrl.fromLocalFile(receive_dir)
-        QtGui.QDesktopServices.openUrl(url)
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            "Open Directory",
+            "Do you want to open the folder now?",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.Yes
+        )
+
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            receive_dir = str(Path.home() / "Received")
+            url = QtCore.QUrl.fromLocalFile(receive_dir)
+            QtGui.QDesktopServices.openUrl(url)
 
     @QtCore.Slot(str, int)
     def handle_receive_text(self, text: str, total_size: int):
         if self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
-        QtWidgets.QMessageBox.information(self, "Text Received", text)
+        
+        dialog = TextViewerDialog(text, self)
+        dialog.exec()
 
     @QtCore.Slot(str)
     def handle_dukto_error(self, error_msg: str):
