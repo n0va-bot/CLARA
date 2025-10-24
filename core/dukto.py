@@ -58,10 +58,10 @@ class DuktoProtocol:
         self.local_tcp_port = tcp_port
     
     def get_system_signature(self) -> str:
-        username = getpass.getuser()
+        name = getpass.getuser() + "'s CLARA"
         hostname = socket.gethostname()
         system = platform.system()
-        return f"{username} at {hostname} ({system})"
+        return f"{name} at {hostname} ({system})"
     
     def initialize(self):
         # UDP Socket for peer discovery
