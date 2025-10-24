@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import sys, os, subprocess, threading
+import sys, os, subprocess
 from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 from pynput import keyboard
@@ -9,7 +9,6 @@ from core.web_search import MullvadLetaWrapper
 from core.discord_presence import presence
 from core.app_launcher import list_apps, launch
 from core.updater import update_repository, is_update_available
-from core.dukto import DuktoProtocol
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
 
@@ -317,39 +316,10 @@ class WebSearchResults(QtWidgets.QDialog):
             QtWidgets.QApplication.restoreOverrideCursor()
 
 
-class ReceiveConfirmationDialog(QtWidgets.QDialog):
-    def __init__(self, sender_ip, file_count, total_size, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Incoming Transfer")
-        
-        size_mb = total_size / (1024 * 1024)
-        
-        layout = QtWidgets.QVBoxLayout()
-        
-        message = (
-            f"Incoming transfer request from {sender_ip}\n\n"
-            f"Files: {file_count}\n"
-            f"Total size: {size_mb:.2f} MB\n\n"
-            "Do you want to accept?"
-        )
-        
-        label = QtWidgets.QLabel(message)
-        layout.addWidget(label)
-        
-        button_box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.StandardButton.Yes | QtWidgets.QDialogButtonBox.StandardButton.No
-        )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        
-        layout.addWidget(button_box)
-        self.setLayout(layout)
-
-
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
 
-    def __init__(self, dukto_handler, restart=False, no_quit=False, super_menu=True):
+    def __init__(self, restart=False, no_quit=False, super_menu=True):
         super().__init__()
 
         flags = (
@@ -374,11 +344,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setMask(mask)
 
         self.super_menu = super_menu
-        self.dukto_handler = dukto_handler
-        self.dukto_handler.on_receive_request = self.handle_receive_request
-        
-        self.receive_confirmation_event = threading.Event()
-        self.receive_confirmation_result = [False]
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
@@ -552,30 +517,8 @@ class MainWindow(QtWidgets.QMainWindow):
         elif status == "FAILED":
             QtWidgets.QMessageBox.critical(self, "Update Failed", message)
 
-    @QtCore.Slot(str, int, int)
-    def show_receive_dialog(self, sender_ip, file_count, total_size):
-        dialog = ReceiveConfirmationDialog(sender_ip, file_count, total_size, self)
-        result = dialog.exec()
-        
-        self.receive_confirmation_result[0] = (result == QtWidgets.QDialog.Accepted)
-        self.receive_confirmation_event.set()
-
-    def handle_receive_request(self, sender_ip, file_count, total_size) -> bool:
-        self.receive_confirmation_event.clear()
-        
-        QtCore.QMetaObject.invokeMethod(
-            self, "show_receive_dialog", QtCore.Qt.QueuedConnection, #type: ignore
-            QtCore.Q_ARG(str, sender_ip),
-            QtCore.Q_ARG(int, file_count),
-            QtCore.Q_ARG(int, total_size),
-        )
-        
-        self.receive_confirmation_event.wait()
-        return self.receive_confirmation_result[0]
-
     def restart_application(self):
         presence.end()
-        self.dukto_handler.shutdown()
         
         args = [sys.executable] + sys.argv
 
@@ -591,15 +534,8 @@ def main():
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
     super_menu = not "--no-super" in sys.argv
-    
-    dukto_handler = DuktoProtocol()
-    
-    pet = MainWindow(dukto_handler=dukto_handler, restart=restart, no_quit=no_quit, super_menu=super_menu)
-    
+    pet = MainWindow(restart=restart, no_quit=no_quit, super_menu=super_menu)
     presence.start()
-    
-    dukto_handler.initialize()
-    dukto_handler.say_hello()
     
     # bottom right corner
     screen_geometry = app.primaryScreen().availableGeometry()
@@ -611,7 +547,6 @@ def main():
     pet.show()
 
     app.aboutToQuit.connect(presence.end)
-    app.aboutToQuit.connect(dukto_handler.shutdown)
     sys.exit(app.exec())
 
 

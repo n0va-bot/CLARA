@@ -40,7 +40,6 @@ class DuktoProtocol:
         # Callbacks
         self.on_peer_added: Optional[Callable[[Peer], None]] = None
         self.on_peer_removed: Optional[Callable[[Peer], None]] = None
-        self.on_receive_request: Optional[Callable[[str, int, int], bool]] = None
         self.on_receive_start: Optional[Callable[[str], None]] = None
         self.on_receive_complete: Optional[Callable[[List[str], int], None]] = None
         self.on_receive_text: Optional[Callable[[str, int], None]] = None
@@ -193,45 +192,29 @@ class DuktoProtocol:
                     conn.close()
                     continue
                 
-                threading.Thread(target=self._handle_connection_request,
+                threading.Thread(target=self._receive_files,
                                args=(conn, addr[0]), daemon=True).start()
             except Exception as e:
                 if self.running:
                     print(f"TCP listener error: {e}")
-
-    def _handle_connection_request(self, conn: socket.socket, sender_ip: str):
-        try:
-            conn.settimeout(10)
-            
-            header = conn.recv(16)
-            if len(header) < 16:
-                conn.close()
-                return
-
-            elements_count = struct.unpack('<Q', header[0:8])[0]
-            total_size = struct.unpack('<Q', header[8:16])[0]
-
-            accept_transfer = True
-            if self.on_receive_request:
-                accept_transfer = self.on_receive_request(sender_ip, elements_count, total_size)
-            
-            if accept_transfer:
-                self._receive_files(conn, sender_ip, elements_count, total_size)
-            else:
-                conn.close()
-                
-        except Exception as e:
-            if self.on_error:
-                self.on_error(f"Connection request error: {e}")
-            conn.close()
-
-    def _receive_files(self, conn: socket.socket, sender_ip: str, elements_count: int, total_size: int):
+    
+    def _receive_files(self, conn: socket.socket, sender_ip: str):
         self.is_receiving = True
         
         if self.on_receive_start:
             self.on_receive_start(sender_ip)
         
         try:
+            conn.settimeout(10)
+            
+            # Read header
+            header = conn.recv(16)
+            if len(header) < 16:
+                return
+            
+            elements_count = struct.unpack('<Q', header[0:8])[0]
+            total_size = struct.unpack('<Q', header[8:16])[0]
+            
             conn.settimeout(None)
             
             received_files = []
