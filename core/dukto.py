@@ -49,6 +49,7 @@ class DuktoProtocol:
         self.on_receive_request: Optional[Callable[[str], None]] = None
         self.on_receive_complete: Optional[Callable[[List[str], int], None]] = None
         self.on_receive_text: Optional[Callable[[str, int], None]] = None
+        self.on_send_start: Optional[Callable[[str], None]] = None
         self.on_send_complete: Optional[Callable[[List[str]], None]] = None
         self.on_transfer_progress: Optional[Callable[[int, int], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
@@ -367,6 +368,9 @@ class DuktoProtocol:
     
     def _send_file_thread(self, ip_dest: str, port: int, files: List[str]):
         try:
+            if self.on_send_start:
+                self.on_send_start(ip_dest)
+            
             # Expand file tree
             expanded_files = self._expand_tree(files)
             
@@ -426,6 +430,9 @@ class DuktoProtocol:
     
     def _send_text_thread(self, ip_dest: str, port: int, text: str):
         try:
+            if self.on_send_start:
+                self.on_send_start(ip_dest)
+            
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((ip_dest, port))
             
