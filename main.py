@@ -12,7 +12,7 @@ from core.updater import update_repository, is_update_available
 from core.dukto import DuktoProtocol, Peer
 
 ASSET = Path(__file__).parent / "assets" / "2ktan.png"
-STRINGS_PATH = Path(__file__).parent / "strings" / "en.json"
+STRINGS_PATH = Path(__file__).parent / "strings" / "personality_en.json"
 
 class AppLauncherDialog(QtWidgets.QDialog):
     def __init__(self, strings, parent=None):
@@ -428,7 +428,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
         
-        print(self.strings)
         s = self.strings["main_window"]["right_menu"]
 
         # RIGHT MENU

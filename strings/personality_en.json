@@ -1,0 +1,86 @@
+{
+    "app_launcher": {
+        "title": "App Launcher",
+        "placeholder": "What would you like to open?",
+        "close_button": "Close",
+        "load_error_title": "Oops!",
+        "load_error_text": "Couldn't load your apps right now: {e}",
+        "launch_error_title": "Launch Error",
+        "launch_error_text": "Had trouble starting {app_name}: {e}"
+    },
+    "file_search": {
+        "results_title": "Found These!",
+        "input_title": "File Search",
+        "input_label": "What are you looking for?",
+        "search_error_title": "Search Error",
+        "search_error_text": "{e}",
+        "no_results_title": "Nothing Yet",
+        "no_results_home_text": "Hmm, can't find that in your home folder. Want me to check the whole system?",
+        "no_results_root_text": "I've searched everywhere, but no luck this time."
+    },
+    "web_search": {
+        "results_title": "Web Results: {query}",
+        "info_base": "Engine: {engine} | Page: {page}",
+        "info_cached": " | (Cached results)",
+        "news_header": "Latest News",
+        "prev_button": "← Previous",
+        "next_button": "Next →",
+        "search_error_title": "Search Error",
+        "search_error_text": "{e}",
+        "input_title": "Web Search",
+        "input_label": "Search the web:",
+        "no_results_title": "Nothing Found",
+        "no_results_text": "Couldn't find anything for that search."
+    },
+    "text_viewer": {
+        "title": "Message Received",
+        "copy_button": "Copy",
+        "close_button": "Close"
+    },
+    "main_window": {
+        "right_menu": {
+            "launch_app": "Launch App",
+            "search_files": "Find Files",
+            "search_web": "Search Web",
+            "send_menu": "Send",
+            "send_files_submenu": "Send Files",
+            "send_text_submenu": "Send Message",
+            "check_updates": "Check for Updates",
+            "restart": "Restart",
+            "toggle_visibility": "Hide/Show",
+            "quit": "Quit"
+        },
+        "no_peers": "No one's around right now",
+        "send_files_dialog_title": "Choose files for {peer_signature}",
+        "send_text_dialog_title": "Message to {peer_signature}",
+        "send_text_dialog_label": "What would you like to say?",
+        "receive_confirm_title": "Incoming!",
+        "receive_confirm_text": "{sender_ip} wants to send you something.\nAccept it?",
+        "progress_dialog": {
+            "receiving_title": "Getting files from {sender_ip}",
+            "receiving_label": "Downloading...",
+            "sending_title": "Sending to {dest_ip}",
+            "sending_label": "Uploading...",
+            "cancel_button": "Cancel"
+        },
+        "receive_complete_title": "Got It!",
+        "receive_complete_text": "Successfully received {count} items. They're in ~/Received.",
+        "open_folder_title": "Open Folder?",
+        "open_folder_text": "Want to see what you received?",
+        "send_complete_title": "Sent!",
+        "send_complete_text": "Successfully sent {count} items.",
+        "send_complete_text_single": "Message delivered!",
+        "dukto_error_title": "Transfer Problem",
+        "dukto_error_text": "{error_msg}",
+        "updater": {
+            "no_updates_title": "You're Up to Date",
+            "no_updates_text": "You're running the latest version!",
+            "update_available_title": "Update Ready",
+            "update_available_text": "There's a new version available. Download and install it now?",
+            "update_success_title": "Update Complete!",
+            "update_success_text": "{message}\n\nRestart now to finish up?",
+            "update_failed_title": "Update Failed",
+            "update_failed_text": "{message}"
+        }
+    }
+}
