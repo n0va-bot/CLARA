@@ -43,7 +43,7 @@ class DuktoProtocol:
         self.on_receive_request: Optional[Callable[[str, int, int], bool]] = None
         self.on_receive_start: Optional[Callable[[str], None]] = None
         self.on_receive_complete: Optional[Callable[[List[str], int], None]] = None
-        self.on_receive_text: Optional[Callable[[str, str, int], None]] = None
+        self.on_receive_text: Optional[Callable[[str, int], None]] = None
         self.on_send_complete: Optional[Callable[[List[str]], None]] = None
         self.on_transfer_progress: Optional[Callable[[int, int], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
@@ -322,7 +322,7 @@ class DuktoProtocol:
             if receiving_text:
                 text = text_data.decode('utf-8')
                 if self.on_receive_text:
-                    self.on_receive_text(sender_ip, text, total_size)
+                    self.on_receive_text(text, total_size)
             else:
                 if self.on_receive_complete:
                     self.on_receive_complete(received_files, total_size)

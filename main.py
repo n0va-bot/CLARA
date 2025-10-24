@@ -346,50 +346,6 @@ class ReceiveConfirmationDialog(QtWidgets.QDialog):
         self.setLayout(layout)
 
 
-class ShowTextDialog(QtWidgets.QDialog):
-    def __init__(self, text, sender_ip, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Received Text")
-        self.setMinimumSize(400, 300)
-
-        layout = QtWidgets.QVBoxLayout()
-
-        # Info label
-        info_label = QtWidgets.QLabel(f"Received text from {sender_ip}:")
-        layout.addWidget(info_label)
-
-        # Text display
-        self.text_edit = QtWidgets.QTextEdit()
-        self.text_edit.setPlainText(text)
-        self.text_edit.setReadOnly(True)
-        layout.addWidget(self.text_edit)
-
-        # Buttons
-        button_layout = QtWidgets.QHBoxLayout()
-        self.copy_button = QtWidgets.QPushButton("Copy to Clipboard")
-        self.copy_button.clicked.connect(self.copy_to_clipboard)
-        
-        close_button = QtWidgets.QPushButton("Close")
-        close_button.clicked.connect(self.accept)
-
-        button_layout.addStretch()
-        button_layout.addWidget(self.copy_button)
-        button_layout.addWidget(close_button)
-        
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
-
-    def copy_to_clipboard(self):
-        clipboard = QtWidgets.QApplication.clipboard()
-        clipboard.setText(self.text_edit.toPlainText())
-        self.copy_button.setText("Copied!")
-        
-        timer = QtCore.QTimer(self)
-        timer.setSingleShot(True)
-        timer.timeout.connect(lambda: self.copy_button.setText("Copy to Clipboard"))
-        timer.start(2000)
-
-
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
 
@@ -420,7 +376,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.super_menu = super_menu
         self.dukto_handler = dukto_handler
         self.dukto_handler.on_receive_request = self.handle_receive_request
-        self.dukto_handler.on_receive_text = self.handle_receive_text
         
         self.receive_confirmation_event = threading.Event()
         self.receive_confirmation_result = [False]
@@ -617,19 +572,6 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.receive_confirmation_event.wait()
         return self.receive_confirmation_result[0]
-
-    @QtCore.Slot(str, str, int)
-    def show_text_dialog(self, sender_ip, text, total_size):
-        dialog = ShowTextDialog(text, sender_ip, self)
-        dialog.exec()
-
-    def handle_receive_text(self, sender_ip, text, total_size):
-        QtCore.QMetaObject.invokeMethod(
-            self, "show_text_dialog", QtCore.Qt.QueuedConnection, #type: ignore
-            QtCore.Q_ARG(str, sender_ip),
-            QtCore.Q_ARG(str, text),
-            QtCore.Q_ARG(int, total_size),
-        )
 
     def restart_application(self):
         presence.end()
