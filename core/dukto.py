@@ -234,6 +234,10 @@ class DuktoProtocol:
     def _receive_files(self, conn: socket.socket, sender_ip: str):
         self.is_receiving = True
         
+        # Define the receive directory
+        receive_dir = Path.home() / "Received"
+        receive_dir.mkdir(parents=True, exist_ok=True)
+
         if self.on_receive_start:
             self.on_receive_start(sender_ip)
         
@@ -279,16 +283,24 @@ class DuktoProtocol:
                         # Find unique name
                         i = 2
                         original_name = name
-                        while os.path.exists(name):
-                            name = f"{original_name} ({i})"
+                        dest_path = receive_dir / name
+                        while dest_path.exists():
+                            dest_path = receive_dir / f"{original_name} ({i})"
                             i += 1
+                        
                         root_folder_name = original_name
-                        root_folder_renamed = name
-                        received_files.append(name)
+                        root_folder_renamed = dest_path.name
+                        
+                        final_path = dest_path
+                        received_files.append(str(final_path))
+
                     elif root_folder_name != root_folder_renamed:
                         name = name.replace(root_folder_name, root_folder_renamed, 1)
+                        final_path = receive_dir / name
+                    else:
+                        final_path = receive_dir / name
                     
-                    os.makedirs(name, exist_ok=True)
+                    final_path.mkdir(parents=True, exist_ok=True)
                 
                 elif name == "___DUKTO___TEXT___":  # Text transfer
                     receiving_text = True
@@ -308,21 +320,23 @@ class DuktoProtocol:
                             self.on_transfer_progress(total_size, total_received)
                 
                 else:  # Regular file
+                    dest_name = name
                     if '/' in name and name.split('/')[0] == root_folder_name:
-                        name = name.replace(root_folder_name, root_folder_renamed, 1)
+                        dest_name = dest_name.replace(root_folder_name, root_folder_renamed, 1)
                     
                     # Find unique filename
                     i = 2
-                    original_name = name
-                    base_path = Path(name)
-                    while os.path.exists(name):
-                        name = f"{base_path.stem} ({i}){base_path.suffix}"
+                    original_path = receive_dir / dest_name
+                    dest_path = original_path
+                    while dest_path.exists():
+                        dest_path = original_path.with_name(f"{original_path.stem} ({i}){original_path.suffix}")
                         i += 1
                     
-                    received_files.append(name)
+                    received_files.append(str(dest_path))
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
                     
                     # Receive file data
-                    with open(name, 'wb') as f:
+                    with open(dest_path, 'wb') as f:
                         received = 0
                         while received < element_size:
                             chunk = conn.recv(min(8192, element_size - received))

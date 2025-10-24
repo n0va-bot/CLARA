@@ -319,7 +319,15 @@ class WebSearchResults(QtWidgets.QDialog):
 
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
+    
+    # Dukto signals
     receive_request_signal = QtCore.Signal(str)
+    progress_update_signal = QtCore.Signal(int, int)
+    receive_start_signal = QtCore.Signal(str)
+    receive_complete_signal = QtCore.Signal(list, int)
+    receive_text_signal = QtCore.Signal(str, int)
+    dukto_error_signal = QtCore.Signal(str)
+
 
     def __init__(self, dukto_handler, restart=False, no_quit=False, super_menu=True):
         super().__init__()
@@ -347,8 +355,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.super_menu = super_menu
         self.dukto_handler = dukto_handler
-        self.dukto_handler.on_receive_request = self.on_dukto_receive_request
+        self.progress_dialog = None
+
+        # Connect Dukto callbacks to emit signals
+        self.dukto_handler.on_receive_request = lambda ip: self.receive_request_signal.emit(ip)
+        self.dukto_handler.on_transfer_progress = lambda total, rec: self.progress_update_signal.emit(total, rec)
+        self.dukto_handler.on_receive_start = lambda ip: self.receive_start_signal.emit(ip)
+        self.dukto_handler.on_receive_complete = lambda files, size: self.receive_complete_signal.emit(files, size)
+        self.dukto_handler.on_receive_text = lambda text, size: self.receive_text_signal.emit(text, size)
+        self.dukto_handler.on_error = lambda msg: self.dukto_error_signal.emit(msg)
+        
+        # Connect signals to GUI slots
         self.receive_request_signal.connect(self.show_receive_confirmation)
+        self.progress_update_signal.connect(self.update_progress_dialog)
+        self.receive_start_signal.connect(self.handle_receive_start)
+        self.receive_complete_signal.connect(self.handle_receive_complete)
+        self.receive_text_signal.connect(self.handle_receive_text)
+        self.dukto_error_signal.connect(self.handle_dukto_error)
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
@@ -423,9 +446,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
 
-    def on_dukto_receive_request(self, sender_ip: str):
-        self.receive_request_signal.emit(sender_ip)
-
     def show_receive_confirmation(self, sender_ip: str):
         reply = QtWidgets.QMessageBox.question(
             self,
@@ -438,6 +458,47 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dukto_handler.approve_transfer()
         else:
             self.dukto_handler.reject_transfer()
+
+    @QtCore.Slot(str)
+    def handle_receive_start(self, sender_ip: str):
+        self.progress_dialog = QtWidgets.QProgressDialog("Receiving file...", "Cancel", 0, 100, self)
+        self.progress_dialog.setWindowTitle(f"Receiving from {sender_ip}")
+        self.progress_dialog.setWindowModality(QtCore.Qt.WindowModal) # type: ignore
+        self.progress_dialog.show()
+
+    @QtCore.Slot(int, int)
+    def update_progress_dialog(self, total_size: int, received: int):
+        if self.progress_dialog:
+            self.progress_dialog.setMaximum(total_size)
+            self.progress_dialog.setValue(received)
+
+    @QtCore.Slot(list, int)
+    def handle_receive_complete(self, received_files: list, total_size: int):
+        if self.progress_dialog:
+            self.progress_dialog.setValue(total_size)
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        
+        QtWidgets.QMessageBox.information(self, "Transfer Complete", f"Successfully received {len(received_files)} items to ~/Received.")
+        
+        # Open the directory
+        receive_dir = str(Path.home() / "Received")
+        url = QtCore.QUrl.fromLocalFile(receive_dir)
+        QtGui.QDesktopServices.openUrl(url)
+
+    @QtCore.Slot(str, int)
+    def handle_receive_text(self, text: str, total_size: int):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        QtWidgets.QMessageBox.information(self, "Text Received", text)
+
+    @QtCore.Slot(str)
+    def handle_dukto_error(self, error_msg: str):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
+        QtWidgets.QMessageBox.critical(self, "Transfer Error", error_msg)
 
     def start_app_launcher(self):
         self.app_launcher_dialog = AppLauncherDialog(self)
