@@ -319,7 +319,7 @@ class WebSearchResults(QtWidgets.QDialog):
 class MainWindow(QtWidgets.QMainWindow):
     show_menu_signal = QtCore.Signal()
 
-    def __init__(self, restart=False, no_quit=False):
+    def __init__(self, restart=False, no_quit=False, super_menu=True):
         super().__init__()
 
         flags = (
@@ -342,6 +342,8 @@ class MainWindow(QtWidgets.QMainWindow):
         mask_img = img.createAlphaMask()
         mask = QtGui.QBitmap.fromImage(mask_img)
         self.setMask(mask)
+
+        self.super_menu = super_menu
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
@@ -381,8 +383,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.left_menu.popup(QtGui.QCursor.pos())
 
     def on_press(self, key):
-        if key == keyboard.Key.cmd:
-            self.show_menu_signal.emit()
+        if self.super_menu:
+            if key == keyboard.Key.cmd:
+                self.show_menu_signal.emit()
 
     def start_hotkey_listener(self):
         self.listener = keyboard.Listener(on_press=self.on_press)
@@ -499,9 +502,10 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setApplicationName("CLARA")
 
-    restart_enabled = "--restart" in sys.argv
+    restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
-    pet = MainWindow(restart=restart_enabled, no_quit=no_quit)
+    super_menu = not "--no-super" in sys.argv
+    pet = MainWindow(restart=restart, no_quit=no_quit, super_menu=super_menu)
     presence.start()
     
     # bottom right corner
