@@ -3,6 +3,8 @@
 
 A ***very*** WIP desktop assistant for X11-based desktops.
 
+![CLARA](/assets/2ktan.png)
+
 (Don't worry, 2k-tan is just a placeholder)
 
 ## Features
