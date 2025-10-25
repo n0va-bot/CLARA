@@ -4,6 +4,7 @@ files = [
     "core/dukto.py",
     "core/file_search.py",
     "core/headers.py",
+    "core/http_share.py",
     "core/updater.py",
     "core/web_search.py",
     "strings/en.json",

@@ -9,6 +9,7 @@ from core.discord_presence import presence
 from core.dukto import Peer
 from core.file_search import find
 from core.web_search import MullvadLetaWrapper
+from core.http_share import FileShareServer
 
 from windows.app_launcher import AppLauncherDialog
 from windows.file_search import FileSearchResults
@@ -32,6 +33,9 @@ class MainWindow(QtWidgets.QMainWindow):
     send_start_signal = QtCore.Signal(str)
     send_complete_signal = QtCore.Signal(list)
     dukto_error_signal = QtCore.Signal(str)
+    
+    # HTTP share signals
+    http_download_signal = QtCore.Signal(str, str)
 
 
     def __init__(self, dukto_handler, strings, restart=False, no_quit=False, super_menu=True):
@@ -63,6 +67,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.super_menu = super_menu
         self.dukto_handler = dukto_handler
         self.progress_dialog = None
+        
+        # HTTP file sharing
+        self.http_share = FileShareServer(port=8080)
+        self.http_share.on_download = lambda filename, ip: self.http_download_signal.emit(filename, ip)
 
         # Connect Dukto callbacks to emit signals
         self.dukto_handler.on_peer_added = lambda peer: self.peer_added_signal.emit(peer)
@@ -87,47 +95,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.send_start_signal.connect(self.handle_send_start)
         self.send_complete_signal.connect(self.handle_send_complete)
         self.dukto_error_signal.connect(self.handle_dukto_error)
+        self.http_download_signal.connect(self.handle_http_download)
 
         self.tray = QtWidgets.QSystemTrayIcon(self)
         self.tray.setIcon(QtGui.QIcon(str(ASSET)))
         
-        s = self.strings["main_window"]["right_menu"]
-
-        # RIGHT MENU
-        right_menu = QtWidgets.QMenu()
-        right_menu.addAction(s["launch_app"], self.start_app_launcher)
-        right_menu.addAction(s["search_files"], self.start_file_search)
-        right_menu.addAction(s["search_web"], self.start_web_search)
-        right_menu.addAction(s.get("calculator", "Calculator"), self.start_calculator)
-        right_menu.addSeparator()
-        send_menu_right = right_menu.addMenu(s["send_menu"])
-        self.send_files_submenu_right = send_menu_right.addMenu(s["send_files_submenu"])
-        self.send_text_submenu_right = send_menu_right.addMenu(s["send_text_submenu"])
-        right_menu.addSeparator()
-        right_menu.addAction(s["check_updates"], self.update_git)
-        if restart:
-            right_menu.addAction(s["restart"], self.restart_application)
-        right_menu.addAction(s["toggle_visibility"], self.toggle_visible)
-        right_menu.addSeparator()
-        if not no_quit:
-            right_menu.addAction(s["quit"], QtWidgets.QApplication.quit)
-        self.tray.setContextMenu(right_menu)
-        self.tray.activated.connect(self.handle_tray_activated)
-        self.tray.show()
-
-        # LEFT MENU
-        self.left_menu = QtWidgets.QMenu()
-        self.left_menu.addAction(s["launch_app"], self.start_app_launcher)
-        self.left_menu.addAction(s["search_files"], self.start_file_search)
-        self.left_menu.addAction(s["search_web"], self.start_web_search)
-        self.left_menu.addAction(s.get("calculator", "Calculator"), self.start_calculator)
-        self.left_menu.addSeparator()
-        send_menu_left = self.left_menu.addMenu(s["send_menu"])
-        self.send_files_submenu_left = send_menu_left.addMenu(s["send_files_submenu"])
-        self.send_text_submenu_left = send_menu_left.addMenu(s["send_text_submenu"])
+        self.build_menus()
         
-        self.update_peer_menus()
-
         # always on top timer
         self.stay_on_top_timer = QtCore.QTimer(self)
         self.stay_on_top_timer.timeout.connect(self.ensure_on_top)
@@ -136,6 +110,92 @@ class MainWindow(QtWidgets.QMainWindow):
         # Super key
         self.show_menu_signal.connect(self.show_menu)
         self.start_hotkey_listener()
+
+    def build_menus(self):
+        s = self.strings["main_window"]["right_menu"]
+
+        # LEFT MENU (Main widget)
+        self.left_menu = QtWidgets.QMenu()
+        self.left_menu.addAction(s["launch_app"], self.start_app_launcher)
+        self.left_menu.addAction(s["search_files"], self.start_file_search)
+        self.left_menu.addAction(s["search_web"], self.start_web_search)
+        self.left_menu.addAction(s.get("calculator", "Calculator"), self.start_calculator)
+        self.left_menu.addSeparator()
+        share_menu_left = self.left_menu.addMenu(s["share_menu"])
+        self.share_files_submenu_left = share_menu_left.addMenu(s["share_files_submenu"])
+        self.share_text_submenu_left = share_menu_left.addMenu(s["share_text_submenu"])
+        self.stop_share_action_left = share_menu_left.addAction("Stop Browser Share", self.stop_browser_share)
+        self.left_menu.addSeparator()
+
+        # RIGHT MENU (Tray icon)
+        right_menu = QtWidgets.QMenu()
+        right_menu.addAction(s["launch_app"], self.start_app_launcher)
+        right_menu.addAction(s["search_files"], self.start_file_search)
+        right_menu.addAction(s["search_web"], self.start_web_search)
+        right_menu.addAction(s.get("calculator", "Calculator"), self.start_calculator)
+        right_menu.addSeparator()
+        share_menu_right = right_menu.addMenu(s["share_menu"])
+        self.share_files_submenu_right = share_menu_right.addMenu(s["share_files_submenu"])
+        self.share_text_submenu_right = share_menu_right.addMenu(s["share_text_submenu"])
+        self.stop_share_action_right = share_menu_right.addAction("Stop Browser Share", self.stop_browser_share)
+        right_menu.addSeparator()
+        right_menu.addAction(s["check_updates"], self.update_git)
+        
+        if "--restart" in sys.argv:
+            right_menu.addAction(s["restart"], self.restart_application)
+        right_menu.addAction(s["toggle_visibility"], self.toggle_visible)
+        right_menu.addSeparator()
+        if "--no-quit" not in sys.argv:
+            right_menu.addAction(s["quit"], QtWidgets.QApplication.quit)
+        
+        self.tray.setContextMenu(right_menu)
+        self.tray.activated.connect(self.handle_tray_activated)
+        self.tray.show()
+        
+        self.update_peer_menus()
+        self.update_share_menu_state()
+
+    def update_share_menu_state(self):
+        s_menu = self.strings["main_window"]["right_menu"]
+        
+        is_sharing = self.http_share.is_running()
+        has_shared_files = bool(self.http_share.shared_files)
+        has_shared_text = bool(self.http_share.shared_text)
+
+        # Set visibility of stop action
+        self.stop_share_action_left.setVisible(is_sharing)
+        self.stop_share_action_right.setVisible(is_sharing)
+
+        # Configure file share menus
+        for menu in [self.share_files_submenu_left, self.share_files_submenu_right]:
+            for action in menu.actions():
+                if hasattr(action, 'is_browser_action'):
+                    menu.removeAction(action)
+            
+            action_text = "Add File(s)..." if has_shared_files else s_menu["via_browser"]
+            browser_action = menu.addAction(action_text)
+            browser_action.is_browser_action = True
+            browser_action.triggered.connect(self.start_file_share_browser)
+            
+            if any(not a.isSeparator() and not hasattr(a, 'is_browser_action') for a in menu.actions()):
+                if not any(a.isSeparator() for a in menu.actions()):
+                     menu.addSeparator()
+
+        # Configure text share menus
+        for menu in [self.share_text_submenu_left, self.share_text_submenu_right]:
+            for action in menu.actions():
+                if hasattr(action, 'is_browser_action'):
+                    menu.removeAction(action)
+            
+            action_text = "Change Shared Text..." if has_shared_text else s_menu["via_browser"]
+            browser_action = menu.addAction(action_text)
+            browser_action.is_browser_action = True
+            browser_action.triggered.connect(self.start_text_share_browser)
+
+            if any(not a.isSeparator() and not hasattr(a, 'is_browser_action') for a in menu.actions()):
+                if not any(a.isSeparator() for a in menu.actions()):
+                    menu.addSeparator()
+
 
     def show_menu(self):
         self.left_menu.popup(QtGui.QCursor.pos())
@@ -151,6 +211,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         self.listener.stop()
+        if self.http_share.is_running():
+            self.http_share.stop()
         super().closeEvent(event)
 
     def ensure_on_top(self):
@@ -164,72 +226,144 @@ class MainWindow(QtWidgets.QMainWindow):
     def mousePressEvent(self, event: QtGui.QMouseEvent):
         if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
             self.left_menu.popup(event.globalPosition().toPoint())
-
         elif event.button() == QtCore.Qt.RightButton:                   #type: ignore
             self.tray.contextMenu().popup(event.globalPosition().toPoint())
 
     def handle_tray_activated(self, reason):
         if reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger:
-            self.left_menu.popup(QtGui.QCursor.pos())
+            self.tray.contextMenu().popup(QtGui.QCursor.pos())
 
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
 
     def update_peer_menus(self):
-        self.send_files_submenu_left.clear()
-        self.send_text_submenu_left.clear()
-        self.send_files_submenu_right.clear()
-        self.send_text_submenu_right.clear()
+        s_main = self.strings["main_window"]
+        no_peers_str = s_main["no_peers"]
         
-        no_peers_str = self.strings["main_window"]["no_peers"]
-
         peers = list(self.dukto_handler.peers.values())
-
+        
+        for menu in [self.share_files_submenu_left, self.share_files_submenu_right, self.share_text_submenu_left, self.share_text_submenu_right]:
+            actions_to_remove = [a for a in menu.actions() if not a.isSeparator() and not hasattr(a, 'is_browser_action')]
+            for action in actions_to_remove:
+                menu.removeAction(action)
+        
         if not peers:
-            no_peers_action_left_files = self.send_files_submenu_left.addAction(no_peers_str)
-            no_peers_action_left_files.setEnabled(False)
-            no_peers_action_left_text = self.send_text_submenu_left.addAction(no_peers_str)
-            no_peers_action_left_text.setEnabled(False)
-            
-            no_peers_action_right_files = self.send_files_submenu_right.addAction(no_peers_str)
-            no_peers_action_right_files.setEnabled(False)
-            no_peers_action_right_text = self.send_text_submenu_right.addAction(no_peers_str)
-            no_peers_action_right_text.setEnabled(False)
-            return
-
-        for peer in sorted(peers, key=lambda p: p.signature):
-            file_action_left = self.send_files_submenu_left.addAction(peer.signature)
-            file_action_right = self.send_files_submenu_right.addAction(peer.signature)
-            
-            text_action_left = self.send_text_submenu_left.addAction(peer.signature)
-            text_action_right = self.send_text_submenu_right.addAction(peer.signature)
-
-            file_action_left.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
-            file_action_right.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
-            
-            text_action_left.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
-            text_action_right.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
+            for menu in [self.share_files_submenu_left, self.share_files_submenu_right, self.share_text_submenu_left, self.share_text_submenu_right]:
+                action = menu.addAction(no_peers_str)
+                action.setEnabled(False)
+        else:
+            for peer in sorted(peers, key=lambda p: p.signature):
+                for files_menu, text_menu in [(self.share_files_submenu_left, self.share_text_submenu_left), (self.share_files_submenu_right, self.share_text_submenu_right)]:
+                    file_action = files_menu.addAction(peer.signature)
+                    text_action = text_menu.addAction(peer.signature)
+                    file_action.triggered.connect(lambda checked=False, p=peer: self.start_file_send(p))
+                    text_action.triggered.connect(lambda checked=False, p=peer: self.start_text_send(p))
+    
+        self.update_share_menu_state()
 
     def start_file_send(self, peer: Peer):
         dialog_title = self.strings["main_window"]["send_files_dialog_title"].format(peer_signature=peer.signature)
-        file_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
-            self,
-            dialog_title,
-            str(Path.home()),
-        )
+        file_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(self, dialog_title, str(Path.home()))
         if file_paths:
             self.dukto_handler.send_file(peer.address, file_paths, peer.port)
 
     def start_text_send(self, peer: Peer):
         dialog_title = self.strings["main_window"]["send_text_dialog_title"].format(peer_signature=peer.signature)
         dialog_label = self.strings["main_window"]["send_text_dialog_label"]
-        text, ok = QtWidgets.QInputDialog.getMultiLineText(
-            self,
-            dialog_title,
-            dialog_label
-        )
+        text, ok = QtWidgets.QInputDialog.getMultiLineText(self, dialog_title, dialog_label)
         if ok and text:
             self.dukto_handler.send_text(peer.address, text, peer.port)
+    
+    def start_file_share_browser(self):
+        s = self.strings["main_window"]
+        is_adding = bool(self.http_share.shared_files)
+        
+        dialog_title = "Select files to add" if is_adding else s["share_browser_dialog_title"]
+        file_paths, _ = QtWidgets.QFileDialog.getOpenFileNames(self, dialog_title, str(Path.home()))
+        
+        if not file_paths:
+            return
+
+        try:
+            if is_adding:
+                self.http_share.add_files(file_paths)
+                self.tray.showMessage("Files Added", f"{len(file_paths)} file(s) added to the share.", QtWidgets.QSystemTrayIcon.Information, 2000) #type: ignore
+            else:
+                url = self.http_share.share_files(file_paths)
+                main_text = s["share_browser_text_files"]
+                info_text = s["share_browser_files_info"].format(count=len(file_paths))
+                if not self.http_share.shared_text:
+                    self._show_sharing_dialog(url, main_text, info_text)
+            
+            self.update_share_menu_state()
+
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, s["share_error_title"], s["share_error_text"].format(error=str(e)))
+
+    def start_text_share_browser(self):
+        s = self.strings["main_window"]
+        is_changing = bool(self.http_share.shared_text)
+        
+        text, ok = QtWidgets.QInputDialog.getMultiLineText(
+            self, 
+            s["share_text_browser_dialog_title"], 
+            s["share_text_browser_dialog_label"],
+            self.http_share.shared_text or ""
+        )
+
+        if not (ok and text):
+            return
+
+        try:
+            url = self.http_share.share_text(text)
+            if not is_changing:
+                main_text = s["share_browser_text_text"]
+                info_text = s["share_browser_text_info"]
+                if not self.http_share.shared_files:
+                    self._show_sharing_dialog(url, main_text, info_text)
+
+            self.update_share_menu_state()
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, s["share_error_title"], s["share_error_text"].format(error=str(e)))
+
+    def stop_browser_share(self):
+        s = self.strings["main_window"]
+        if self.http_share.is_running():
+            self.http_share.stop()
+            self.tray.showMessage(s["sharing_stopped_title"], s["sharing_stopped_text"], QtWidgets.QSystemTrayIcon.Information, 2000) #type: ignore
+        self.update_share_menu_state()
+
+    def _show_sharing_dialog(self, url: str, main_text: str, info_text: str):
+        s = self.strings["main_window"]
+        msg = QtWidgets.QMessageBox(self)
+        msg.setIcon(QtWidgets.QMessageBox.Information) #type: ignore
+        msg.setWindowTitle(s["share_browser_title"])
+        msg.setText(main_text)
+        msg.setInformativeText(f"{s['share_browser_url']}:\n\n{url}\n\n{info_text}")
+        
+        copy_btn = msg.addButton(s["copy_url"], QtWidgets.QMessageBox.ActionRole) #type: ignore
+        open_btn = msg.addButton(s["open_browser"], QtWidgets.QMessageBox.ActionRole) #type: ignore
+        msg.addButton(QtWidgets.QMessageBox.Ok) #type: ignore
+        
+        msg.exec()
+        
+        clicked = msg.clickedButton()
+        if clicked == copy_btn:
+            clipboard = QtWidgets.QApplication.clipboard()
+            clipboard.setText(url)
+            self.tray.showMessage(s["url_copied_title"], s["url_copied_text"], QtWidgets.QSystemTrayIcon.Information, 2000) #type: ignore
+        elif clicked == open_btn:
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+
+    @QtCore.Slot(str, str)
+    def handle_http_download(self, filename: str, client_ip: str):
+        s = self.strings["main_window"]
+        self.tray.showMessage(
+            s["download_notification_title"],
+            s["download_notification_text"].format(filename=filename, ip=client_ip),
+            QtWidgets.QSystemTrayIcon.Information, #type: ignore
+            3000
+        )
 
     def show_receive_confirmation(self, sender_ip: str):
         reply = QtWidgets.QMessageBox.question(
@@ -434,6 +568,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def restart_application(self):
         presence.end()
         self.dukto_handler.shutdown()
+        if self.http_share.is_running():
+            self.http_share.stop()
         
         args = [sys.executable] + sys.argv
 
