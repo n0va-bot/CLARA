@@ -5,6 +5,7 @@ from PySide6 import QtWidgets
 
 from core.discord_presence import presence
 from core.dukto import DuktoProtocol
+from core.updater import update_repository, is_update_available
 
 from windows.main_window import MainWindow
 
@@ -30,6 +31,12 @@ def main():
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
     super_menu = not "--no-super" in sys.argv
+    noupdate = "--no-update" in sys.argv
+
+    if not noupdate:
+        update_available = is_update_available()
+        if update_available:
+            update_repository()
     
     dukto_handler = DuktoProtocol()
     
