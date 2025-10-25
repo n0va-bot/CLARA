@@ -14,7 +14,15 @@ A ***very*** WIP desktop assistant for X11-based desktops.
 - Updater (git)
 - Super key menu
 - Local network file and text transfer (Dukto protocol)
+- Browser based file and text transfer (HTTP)
 - Discord Rich Presence integration
+- Calculator
+
+## Requirements
+- Python 3
+- X11 Desktop
+- `fd`
+- `git`
 
 ## Instructions
 1. Clone this repository
@@ -24,5 +32,6 @@ A ***very*** WIP desktop assistant for X11-based desktops.
      - `--restart` Add a restart option to the right click menu
      - `--no-quit` Hide the quit option
      - `--no-super` Disable the super key menu
+     - `--no-update` Don't update automatically on startup
 
 If you want to contribute in any way, PRs (and issues) welcome
