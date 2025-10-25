@@ -14,6 +14,7 @@ from windows.app_launcher import AppLauncherDialog
 from windows.file_search import FileSearchResults
 from windows.web_results import WebSearchResults
 from windows.text_viewer import TextViewerDialog
+from windows.calculator import CalculatorDialog
 
 ASSET = Path(__file__).parent.parent / "assets" / "2ktan.png"
 
@@ -97,6 +98,7 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addAction(s["launch_app"], self.start_app_launcher)
         right_menu.addAction(s["search_files"], self.start_file_search)
         right_menu.addAction(s["search_web"], self.start_web_search)
+        right_menu.addAction(s.get("calculator", "Calculator"), self.start_calculator)
         right_menu.addSeparator()
         send_menu_right = right_menu.addMenu(s["send_menu"])
         self.send_files_submenu_right = send_menu_right.addMenu(s["send_files_submenu"])
@@ -118,6 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.left_menu.addAction(s["launch_app"], self.start_app_launcher)
         self.left_menu.addAction(s["search_files"], self.start_file_search)
         self.left_menu.addAction(s["search_web"], self.start_web_search)
+        self.left_menu.addAction(s.get("calculator", "Calculator"), self.start_calculator)
         self.left_menu.addSeparator()
         send_menu_left = self.left_menu.addMenu(s["send_menu"])
         self.send_files_submenu_left = send_menu_left.addMenu(s["send_files_submenu"])
@@ -320,6 +323,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.app_launcher_dialog = AppLauncherDialog(self.strings, self)
         self.app_launcher_dialog.move(QtGui.QCursor.pos())
         self.app_launcher_dialog.show()
+
+    def start_calculator(self):
+        self.calculator_dialog = CalculatorDialog(self.strings, self)
+        self.calculator_dialog.move(QtGui.QCursor.pos())
+        self.calculator_dialog.show()
 
     def start_file_search(self):
         s = self.strings["file_search"]

@@ -37,11 +37,16 @@
         "copy_button": "Copy to Clipboard",
         "close_button": "Close"
     },
+    "calculator": {
+        "title": "Calculator",
+        "copy_button": "Copy Result"
+    },
     "main_window": {
         "right_menu": {
             "launch_app": "Launch App",
             "search_files": "Search Files",
             "search_web": "Search Web",
+            "calculator": "Calculator",
             "send_menu": "Send",
             "send_files_submenu": "Send File(s)",
             "send_text_submenu": "Send Text",
