@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Callable
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import html
+import json
 
 def format_size(bytes_val: int) -> str:
     if bytes_val is None: return ""
@@ -28,78 +29,193 @@ class FileShareHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
     
-    def _get_base_html(self, title: str, body_content: str) -> str:
+    def _get_base_html(self, title: str, body_content: str, initial_data_script: str = "") -> str:
         return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>{html.escape(title)}</title>
     <style type="text/css">
+        html, body {{ margin:0; padding:0; }}
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f3f4f6;
+            color: #222;
             padding: 20px;
+            line-height: 1.4;
+            font-size: 14px;
         }}
         .container {{
-            max-width: 800px;
+            width: 760px;
+            max-width: 98%;
             margin: 0 auto;
-            background-color: #ffffff;
-            border: 1px solid #dcdcdc;
-            border-radius: 8px;
-            padding: 20px 30px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: #ffffff;
+            border: 1px solid #cfcfcf;
+            padding: 16px;
         }}
-        h1, h2 {{
-            color: #4a4a4a;
-            border-bottom: 2px solid #eaeaea;
-            padding-bottom: 10px;
+        .header {{
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e6e6e6;
+            overflow: hidden;
         }}
-        p {{
-            line-height: 1.6;
-            color: #555;
+        .brand {{
+            float: left;
+            font-weight: bold;
+            font-size: 20px;
+            color: #2b65a3;
         }}
-        table {{
+        .subtitle {{
+            float: right;
+            color: #666;
+            font-size: 12px;
+            margin-top: 4px;
+            text-align: right;
+        }}
+        .main {{
+            margin-top: 16px;
+            overflow: hidden;
+        }}
+        .left-col {{
+            float: left;
+            width: 60%;
+            min-width: 300px;
+        }}
+        .right-col {{
+            float: left;
+            width: 36%;
+            min-width: 160px;
+            margin-left: 12px;
+        }}
+        .section {{ margin-bottom: 18px; }}
+        h2 {{
+            font-size: 16px;
+            margin: 6px 0 10px 0;
+            color: #333;
+        }}
+        p {{ margin: 8px 0; color: #444; }}
+        table.file-list {{
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            border-spacing: 0;
         }}
-        th, td {{
+        table.file-list th, table.file-list td {{
+            padding: 8px 6px;
+            border-bottom: 1px solid #eaeaea;
             text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
+            vertical-align: middle;
         }}
-        th {{
-            background-color: #f8f8f8;
+        table.file-list th {{
+            background: #f7f7f7;
+            font-size: 13px;
+            color: #333;
         }}
-        tr:hover {{
-            background-color: #f1f1f1;
-        }}
-        a {{
-            color: #007bff;
+        a.button {{
+            display: inline-block;
+            padding: 6px 10px;
             text-decoration: none;
+            border: 1px solid #9fb3d6;
+            background: #e9f0fb;
+            color: #1a4f86;
+            cursor: pointer;
+            font-size: 13px;
         }}
-        a:hover {{
-            text-decoration: underline;
-        }}
-        textarea {{
+        a.button:hover {{ text-decoration: underline; }}
+        textarea.share-text {{
             width: 98%;
-            padding: 10px;
+            height: 220px;
             font-family: "Courier New", Courier, monospace;
+            font-size: 12px;
+            padding: 6px;
             border: 1px solid #ccc;
-            border-radius: 4px;
-            background-color: #fafafa;
+            background: #fafafa;
         }}
-        .section {{
-            margin-bottom: 30px;
-        }}
+        .clearfix {{ display: block; }}
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="header">
+            <div class="brand">CLARA Share</div>
+            <div class="subtitle">Simple file &amp; text sharing — local network</div>
+        </div>
         {body_content}
     </div>
+    {initial_data_script}
+    <script type="text/javascript">
+        (function() {{
+            var lastData = '';
+
+            function updateContent(data) {{
+                var textContainer = document.getElementById('shared-text-container');
+                var filesContainer = document.getElementById('shared-files-container');
+                var noContent = document.getElementById('no-content-message');
+
+                var hasText = data.text && data.text.length > 0;
+                var hasFiles = data.files && data.files.length > 0;
+
+                if (textContainer) {{
+                    var textHtml = '';
+                    if (hasText) {{
+                        textHtml = '<h2>Shared Text</h2>' +
+                                   '<p>Select the text below and copy it to your clipboard.</p>' +
+                                   '<textarea class="share-text" readonly="readonly">' + data.text + '</textarea>';
+                    }}
+                    textContainer.innerHTML = textHtml;
+                }}
+
+                if (filesContainer) {{
+                    var filesHtml = '';
+                    if (hasFiles) {{
+                        var rows = '';
+                        for (var i = 0; i < data.files.length; i++) {{
+                            var file = data.files[i];
+                            rows += '<tr>' +
+                                      '<td>' + file.name + '</td>' +
+                                      '<td>' + file.size + '</td>' +
+                                      '<td><a class="button" href="' + file.url + '">Download</a></td>' +
+                                    '</tr>';
+                        }}
+                        filesHtml = '<h2>Shared Files</h2>' +
+                                    '<p>Click a button to download the corresponding file.</p>' +
+                                    '<table class="file-list" cellpadding="0" cellspacing="0">' +
+                                    '<tr><th>Filename</th><th>Size</th><th>Action</th></tr>' + rows + '</table>';
+                    }}
+                    filesContainer.innerHTML = filesHtml;
+                }}
+                
+                if (noContent) {{
+                    noContent.style.display = (hasText || hasFiles) ? 'none' : 'block';
+                }}
+            }}
+
+            function fetchData() {{
+                var xhr = new (window.XMLHttpRequest || ActiveXObject)('MSXML2.XMLHTTP.3.0');
+                xhr.open('GET', '/api/data', true);
+                xhr.onreadystatechange = function () {{
+                    if (xhr.readyState === 4 && xhr.status === 200) {{
+                        if (xhr.responseText !== lastData) {{
+                            lastData = xhr.responseText;
+                            try {{
+                                var data = JSON.parse(xhr.responseText);
+                                updateContent(data);
+                            }} catch (e) {{}}
+                        }}
+                    }}
+                }};
+                xhr.send(null);
+            }}
+
+            if (typeof initialDataJSON !== 'undefined' && initialDataJSON) {{
+                lastData = initialDataJSON;
+                try {{
+                    var initialData = JSON.parse(initialDataJSON);
+                    updateContent(initialData);
+                }} catch (e) {{}}
+            }}
+
+            setInterval(fetchData, 5000);
+        }})();
+    </script>
 </body>
 </html>"""
 
@@ -108,64 +224,83 @@ class FileShareHandler(BaseHTTPRequestHandler):
             self.send_combined_index_page()
         elif self.path.startswith('/download/'):
             self.handle_download()
+        elif self.path == '/api/data':
+            self.send_api_data()
         else:
             self.send_error(404, "Not Found")
 
+    def _get_api_data_dict(self):
+        files_data = []
+        for i, filepath in enumerate(self.shared_files):
+            try:
+                path = Path(filepath)
+                if path.exists() and path.is_file():
+                    files_data.append({
+                        "name": html.escape(path.name),
+                        "size": format_size(path.stat().st_size),
+                        "url": f"/download/{i}"
+                    })
+            except Exception:
+                continue
+        
+        return {
+            "text": html.escape(self.shared_text or ""),
+            "files": files_data
+        }
+
     def send_combined_index_page(self):
-        body_parts = ["<h1>CLARA Share</h1>"]
-        has_content = False
+        has_content = bool(self.shared_text or self.shared_files)
+        
+        main_content = f"""<div class="main clearfix">
+    <div class="left-col">
+        <div class="section" id="shared-text-container"></div>
+        <div class="section" id="shared-files-container"></div>
+    </div>
+    <div class="right-col">
+        <div class="section">
+            <h2>Quick Info</h2>
+            <p><strong>URL:</strong><br/><span>{html.escape(f"http://{self._get_local_ip()}:%s/")}</span></p>
+            <p><strong>Status:</strong><br/>Server running</p>
+        </div>
+    </div>
+    <div id="no-content-message" style="display: {'none' if has_content else 'block'};">
+        <p>No content is currently being shared.</p>
+    </div>
+</div>""" % self.server.server_address[1] #type: ignore
 
-        # Text section
-        if self.shared_text:
-            has_content = True
-            escaped_text = html.escape(self.shared_text)
-            body_parts.append(f"""<div class="section">
-<h2>Shared Text</h2>
-<p>Select the text below and copy it.</p>
-<textarea readonly="readonly" rows="15">{escaped_text}</textarea>
-</div>""")
+        initial_data_dict = self._get_api_data_dict()
+        json_string = json.dumps(initial_data_dict)
+        initial_data_script = f'<script type="text/javascript">var initialDataJSON = {json.dumps(json_string)};</script>'
 
-        # Files section
-        if self.shared_files:
-            has_content = True
-            file_rows = []
-            for i, filepath in enumerate(self.shared_files):
-                try:
-                    path = Path(filepath)
-                    if path.exists() and path.is_file():
-                        file_rows.append(
-                            f'<tr>'
-                            f'<td>{html.escape(path.name)}</td>'
-                            f'<td>{format_size(path.stat().st_size)}</td>'
-                            f'<td><a href="/download/{i}">Download</a></td>'
-                            f'</tr>'
-                        )
-                except Exception:
-                    continue
-            
-            if not file_rows:
-                file_table = '<p>No valid files are currently being shared.</p>'
-            else:
-                file_table = f"""<table>
-    <tr><th>Filename</th><th>Size</th><th>Link</th></tr>
-    {''.join(file_rows)}
-</table>"""
-
-            body_parts.append(f"""<div class="section">
-<h2>Shared Files</h2>
-{file_table}
-</div>""")
-
-        if not has_content:
-            body_parts.append("<p>No content is currently being shared.</p>")
-
-        html_content = self._get_base_html("CLARA Share", "".join(body_parts)).encode('utf-8')
+        html_content = self._get_base_html(
+            "CLARA Share", 
+            main_content, 
+            initial_data_script=initial_data_script
+        ).encode('utf-8')
         
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(html_content)))
         self.end_headers()
         self.wfile.write(html_content)
+
+    def send_api_data(self):
+        data = self._get_api_data_dict()
+        json_response = json.dumps(data).encode('utf-8')
+        
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(json_response)))
+        self.end_headers()
+        self.wfile.write(json_response)
+    
+    def _get_local_ip(self) -> str:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "127.0.0.1"
     
     def handle_download(self):
         try:
