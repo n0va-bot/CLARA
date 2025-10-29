@@ -216,7 +216,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
     def ensure_on_top(self):
-        if self.isVisible():
+        if self.isVisible() and not self.left_menu.isVisible() and not self.tray.contextMenu().isVisible():
             self.raise_()
 
     def showEvent(self, event):

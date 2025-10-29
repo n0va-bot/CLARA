@@ -110,12 +110,18 @@ def parse_lnk_file(file_path: Path) -> Optional[App]:
         shortcut = shell.CreateShortCut(str(file_path))
         
         target = shortcut.TargetPath
-        if not target:
+        arguments = shortcut.Arguments
+
+        if not target or not os.path.exists(target):
             return None
+
+        full_exec = f'"{target}"'
+        if arguments:
+            full_exec += f' {arguments}'
 
         return App(
             name=file_path.stem,
-            exec=target,
+            exec=full_exec,
             comment=shortcut.Description,
             icon=shortcut.IconLocation.split(',')[0] if shortcut.IconLocation else ""
         )
@@ -173,13 +179,18 @@ def reload_app_cache() -> list[App]:
 def launch(app: App):
     if platform.system() == "Windows":
         try:
-            os.startfile(app.exec)
+            command_args = shlex.split(app.exec, posix=False)
+            
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            
+            subprocess.Popen(
+                command_args,
+                creationflags=subprocess.DETACHED_PROCESS,
+                startupinfo=startupinfo
+            )
         except Exception as e:
-            print(f"Failed to launch '{app.name}' with os.startfile: {e}. Trying subprocess.")
-            try:
-                subprocess.Popen([app.exec])
-            except Exception as e2:
-                print(f"Failed to launch '{app.name}' with subprocess: {e2}")
+            print(f"Failed to launch '{app.name}': {e}")
     else:
         cleaned_exec = app.exec.split(' %')[0]
         try:
