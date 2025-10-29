@@ -3,14 +3,16 @@ import os
 import configparser
 
 class App:
-    def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False):
+    def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False, generic_name: str = "", comment: str = ""):
         self.name = name
         self.exec = exec
         self.icon = icon
         self.hidden = hidden
+        self.generic_name = generic_name
+        self.comment = comment
     
     def __str__(self):
-        return f"App(name={self.name}, exec={self.exec}, icon={self.icon}, hidden={self.hidden})"
+        return f"App(name={self.name}, exec={self.exec}, icon={self.icon}, hidden={self.hidden}, generic_name={self.generic_name}, comment={self.comment})"
 
 def get_desktop_dirs():
     dirs = [
@@ -53,7 +55,9 @@ def parse_desktop_file(file_path: Path) -> list[App]:
                 name=main_name,
                 exec=main_exec,
                 icon=main_entry.get('Icon', ''),
-                hidden=False
+                hidden=False,
+                generic_name=main_entry.get('GenericName', ''),
+                comment=main_entry.get('Comment', '')
             ))
 
         if 'Actions' in main_entry:

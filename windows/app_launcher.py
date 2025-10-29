@@ -57,6 +57,15 @@ class AppLauncherDialog(QtWidgets.QDialog):
             item = QtWidgets.QListWidgetItem(app.name)
             item.setData(QtCore.Qt.UserRole, app) #type: ignore
             
+            # Set tooltip with GenericName and Comment
+            tooltip_parts = []
+            if app.generic_name:
+                tooltip_parts.append(app.generic_name)
+            if app.comment:
+                tooltip_parts.append(app.comment)
+            if tooltip_parts:
+                item.setToolTip("\n".join(tooltip_parts))
+
             # Try to load the icon
             if app.icon:
                 icon = QtGui.QIcon.fromTheme(app.icon)
@@ -71,7 +80,12 @@ class AppLauncherDialog(QtWidgets.QDialog):
             return
         
         text_lower = text.lower()
-        filtered_apps = [app for app in self.apps if text_lower in app.name.lower()]
+        filtered_apps = [
+            app for app in self.apps if 
+            text_lower in app.name.lower() or
+            (app.generic_name and text_lower in app.generic_name.lower()) or
+            (app.comment and text_lower in app.comment.lower())
+        ]
         self.populate_list(filtered_apps)
     
     def launch_app(self, item: QtWidgets.QListWidgetItem):
