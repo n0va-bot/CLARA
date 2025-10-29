@@ -62,7 +62,8 @@ class DuktoProtocol:
         name = getpass.getuser() + "'s CLARA"
         hostname = socket.gethostname()
         system = platform.system()
-        return f"{name} at {hostname} ({system})"
+        pid = os.getpid()
+        return f"{name} at {hostname} ({system}) [PID:{pid}]"
     
     def initialize(self):
         # UDP Socket for peer discovery
