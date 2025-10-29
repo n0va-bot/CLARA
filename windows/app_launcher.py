@@ -1,6 +1,6 @@
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from core.app_launcher import list_apps, launch
+from core.app_launcher import list_apps, launch, reload_app_cache
 
 class AppLauncherDialog(QtWidgets.QDialog):
     def __init__(self, strings, parent=None):
@@ -25,9 +25,17 @@ class AppLauncherDialog(QtWidgets.QDialog):
         
         # Buttons
         button_layout = QtWidgets.QHBoxLayout()
+        
+        refresh_button = QtWidgets.QPushButton()
+        refresh_icon = self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload) # type: ignore
+        refresh_button.setIcon(refresh_icon)
+        refresh_button.setToolTip("Reload application list")
+        refresh_button.clicked.connect(self.reload_apps)
+        
         close_button = QtWidgets.QPushButton(self.strings["close_button"])
         close_button.clicked.connect(self.close)
         
+        button_layout.addWidget(refresh_button)
         button_layout.addStretch()
         button_layout.addWidget(close_button)
         layout.addLayout(button_layout)
@@ -51,6 +59,18 @@ class AppLauncherDialog(QtWidgets.QDialog):
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
     
+    def reload_apps(self):
+        try:
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
+            self.apps = reload_app_cache()
+            self.apps.sort(key=lambda x: x.name.lower())
+            # Reapply current filter
+            self.filter_apps(self.search_box.text())
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, self.strings["load_error_title"], self.strings["load_error_text"].format(e=e))
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+
     def populate_list(self, apps):
         self.list_widget.clear()
         for app in apps:

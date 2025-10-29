@@ -1,6 +1,9 @@
 from pathlib import Path
 import os
 import configparser
+from typing import Optional
+
+_app_cache: Optional[list['App']] = None
 
 class App:
     def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False, generic_name: str = "", comment: str = "", command: str = ""):
@@ -90,7 +93,12 @@ def is_user_dir(path: Path) -> bool:
     user_home = str(Path.home())
     return path_str.startswith(user_home)
 
-def list_apps() -> list[App]:
+def list_apps(force_reload: bool = False) -> list[App]:
+    global _app_cache
+    
+    if _app_cache is not None and not force_reload:
+        return _app_cache
+        
     apps_dict = {}
     
     for desktop_dir in get_desktop_dirs():
@@ -109,7 +117,11 @@ def list_apps() -> list[App]:
                 else:
                     apps_dict[app.name] = (app, is_user)
     
-    return [app for app, _ in apps_dict.values()]
+    _app_cache = [app for app, _ in apps_dict.values()]
+    return _app_cache
+
+def reload_app_cache() -> list[App]:
+    return list_apps(force_reload=True)
 
 def launch(app: App):
     import subprocess

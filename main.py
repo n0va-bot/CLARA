@@ -2,14 +2,21 @@
 import sys, json
 from pathlib import Path
 from PySide6 import QtWidgets
+import threading
 
 from core.discord_presence import presence
 from core.dukto import DuktoProtocol
 from core.updater import update_repository, is_update_available
+from core.app_launcher import list_apps
 
 from windows.main_window import MainWindow
 
 STRINGS_PATH = Path(__file__).parent / "strings" / "personality_en.json"
+
+def preload_apps():
+    print("Preloading application list...")
+    list_apps()
+    print("Application list preloaded.")
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
@@ -38,6 +45,10 @@ def main():
         if update_available:
             update_repository()
     
+    # Start preloading apps in the background
+    preload_thread = threading.Thread(target=preload_apps, daemon=True)
+    preload_thread.start()
+            
     dukto_handler = DuktoProtocol()
     
     pet = MainWindow(dukto_handler=dukto_handler, strings=strings, restart=restart, no_quit=no_quit, super_menu=super_menu)
