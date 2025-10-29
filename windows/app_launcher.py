@@ -57,12 +57,14 @@ class AppLauncherDialog(QtWidgets.QDialog):
             item = QtWidgets.QListWidgetItem(app.name)
             item.setData(QtCore.Qt.UserRole, app) #type: ignore
             
-            # Set tooltip with GenericName and Comment
+            # Set tooltip with GenericName, Comment, and Command
             tooltip_parts = []
             if app.generic_name:
                 tooltip_parts.append(app.generic_name)
             if app.comment:
                 tooltip_parts.append(app.comment)
+            if app.command and app.command.lower() != app.name.lower():
+                tooltip_parts.append(f"Command: {app.command}")
             if tooltip_parts:
                 item.setToolTip("\n".join(tooltip_parts))
 
@@ -84,7 +86,8 @@ class AppLauncherDialog(QtWidgets.QDialog):
             app for app in self.apps if 
             text_lower in app.name.lower() or
             (app.generic_name and text_lower in app.generic_name.lower()) or
-            (app.comment and text_lower in app.comment.lower())
+            (app.comment and text_lower in app.comment.lower()) or
+            (app.command and text_lower in app.command.lower())
         ]
         self.populate_list(filtered_apps)
     

@@ -3,16 +3,17 @@ import os
 import configparser
 
 class App:
-    def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False, generic_name: str = "", comment: str = ""):
+    def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False, generic_name: str = "", comment: str = "", command: str = ""):
         self.name = name
         self.exec = exec
         self.icon = icon
         self.hidden = hidden
         self.generic_name = generic_name
         self.comment = comment
+        self.command = command
     
     def __str__(self):
-        return f"App(name={self.name}, exec={self.exec}, icon={self.icon}, hidden={self.hidden}, generic_name={self.generic_name}, comment={self.comment})"
+        return f"App(name={self.name}, exec={self.exec}, command={self.command}, icon={self.icon}, hidden={self.hidden}, generic_name={self.generic_name}, comment={self.comment})"
 
 def get_desktop_dirs():
     dirs = [
@@ -51,13 +52,15 @@ def parse_desktop_file(file_path: Path) -> list[App]:
     if main_name and not is_hidden:
         main_exec = main_entry.get('Exec')
         if main_exec:
+            command_name = os.path.basename(main_exec.split(' ')[0])
             apps.append(App(
                 name=main_name,
                 exec=main_exec,
                 icon=main_entry.get('Icon', ''),
                 hidden=False,
                 generic_name=main_entry.get('GenericName', ''),
-                comment=main_entry.get('Comment', '')
+                comment=main_entry.get('Comment', ''),
+                command=command_name
             ))
 
         if 'Actions' in main_entry:
@@ -70,12 +73,14 @@ def parse_desktop_file(file_path: Path) -> list[App]:
                     action_exec = action_section.get('Exec')
 
                     if action_name and action_exec:
+                        action_command_name = os.path.basename(action_exec.split(' ')[0])
                         combined_name = f"{main_name} - {action_name}"
                         apps.append(App(
                             name=combined_name,
                             exec=action_exec,
                             icon=main_entry.get('Icon', ''),
-                            hidden=False
+                            hidden=False,
+                            command=action_command_name
                         ))
     return apps
 
