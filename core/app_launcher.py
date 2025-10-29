@@ -1,7 +1,17 @@
 from pathlib import Path
 import os
 import configparser
-from typing import Optional
+from typing import Optional, List
+import platform
+import subprocess
+import shlex
+
+if platform.system() == "Windows":
+    try:
+        from win32com.client import Dispatch
+    except ImportError:
+        print("Windows specific functionality requires 'pywin32'. Please run 'pip install pywin32'.")
+        Dispatch = None
 
 _app_cache: Optional[list['App']] = None
 
@@ -13,12 +23,12 @@ class App:
         self.hidden = hidden
         self.generic_name = generic_name
         self.comment = comment
-        self.command = command
+        self.command = command if command else os.path.basename(exec.split(' ')[0])
     
     def __str__(self):
         return f"App(name={self.name}, exec={self.exec}, command={self.command}, icon={self.icon}, hidden={self.hidden}, generic_name={self.generic_name}, comment={self.comment})"
 
-def get_desktop_dirs():
+def get_desktop_dirs_linux():
     dirs = [
         Path.home() / ".local/share/applications",
         Path.home() / ".var/lib/app/flatpak/exports/share/applications",
@@ -32,6 +42,16 @@ def get_desktop_dirs():
         if xdg_dir:
             dirs.append(Path(xdg_dir) / "applications")
     
+    return [d for d in dirs if d.exists()]
+
+def get_start_menu_dirs_windows():
+    appdata = os.getenv('APPDATA')
+    programdata = os.getenv('PROGRAMDATA')
+    dirs = []
+    if appdata:
+        dirs.append(Path(appdata) / "Microsoft/Windows/Start Menu/Programs")
+    if programdata:
+        dirs.append(Path(programdata) / "Microsoft/Windows/Start Menu/Programs")
     return [d for d in dirs if d.exists()]
 
 def parse_desktop_file(file_path: Path) -> list[App]:
@@ -55,15 +75,13 @@ def parse_desktop_file(file_path: Path) -> list[App]:
     if main_name and not is_hidden:
         main_exec = main_entry.get('Exec')
         if main_exec:
-            command_name = os.path.basename(main_exec.split(' ')[0])
             apps.append(App(
                 name=main_name,
                 exec=main_exec,
                 icon=main_entry.get('Icon', ''),
                 hidden=False,
                 generic_name=main_entry.get('GenericName', ''),
-                comment=main_entry.get('Comment', ''),
-                command=command_name
+                comment=main_entry.get('Comment', '')
             ))
 
         if 'Actions' in main_entry:
@@ -76,37 +94,45 @@ def parse_desktop_file(file_path: Path) -> list[App]:
                     action_exec = action_section.get('Exec')
 
                     if action_name and action_exec:
-                        action_command_name = os.path.basename(action_exec.split(' ')[0])
                         combined_name = f"{main_name} - {action_name}"
                         apps.append(App(
                             name=combined_name,
                             exec=action_exec,
-                            icon=main_entry.get('Icon', ''),
-                            hidden=False,
-                            command=action_command_name
+                            icon=main_entry.get('Icon', '')
                         ))
     return apps
 
+def parse_lnk_file(file_path: Path) -> Optional[App]:
+    if not Dispatch:
+        return None
+    try:
+        shell = Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortCut(str(file_path))
+        
+        target = shortcut.TargetPath
+        if not target:
+            return None
+
+        return App(
+            name=file_path.stem,
+            exec=target,
+            comment=shortcut.Description,
+            icon=shortcut.IconLocation.split(',')[0] if shortcut.IconLocation else ""
+        )
+    except Exception:
+        return None
 
 def is_user_dir(path: Path) -> bool:
     path_str = str(path)
     user_home = str(Path.home())
     return path_str.startswith(user_home)
 
-def list_apps(force_reload: bool = False) -> list[App]:
-    global _app_cache
-    
-    if _app_cache is not None and not force_reload:
-        return _app_cache
-        
+def list_apps_linux() -> List[App]:
     apps_dict = {}
-    
-    for desktop_dir in get_desktop_dirs():
+    for desktop_dir in get_desktop_dirs_linux():
         is_user = is_user_dir(desktop_dir)
-        
         for file_path in desktop_dir.glob("*.desktop"):
             for app in parse_desktop_file(file_path):
-                
                 if app.hidden or not app.name or not app.exec:
                     continue
                 
@@ -116,23 +142,50 @@ def list_apps(force_reload: bool = False) -> list[App]:
                         apps_dict[app.name] = (app, is_user)
                 else:
                     apps_dict[app.name] = (app, is_user)
+    return [app for app, _ in apps_dict.values()]
+
+def list_apps_windows() -> List[App]:
+    apps_dict = {}
+    for start_menu_dir in get_start_menu_dirs_windows():
+        for file_path in start_menu_dir.rglob("*.lnk"):
+            app = parse_lnk_file(file_path)
+            if app and app.exec and app.name:
+                if app.exec not in apps_dict or len(app.name) > len(apps_dict[app.exec].name):
+                    apps_dict[app.exec] = app
+    return list(apps_dict.values())
+
+def list_apps(force_reload: bool = False) -> list[App]:
+    global _app_cache
     
-    _app_cache = [app for app, _ in apps_dict.values()]
+    if _app_cache is not None and not force_reload:
+        return _app_cache
+    
+    if platform.system() == "Windows":
+        _app_cache = list_apps_windows()
+    else:
+        _app_cache = list_apps_linux()
+        
     return _app_cache
 
 def reload_app_cache() -> list[App]:
     return list_apps(force_reload=True)
 
 def launch(app: App):
-    import subprocess
-    import shlex
-    
-    cleaned_exec = app.exec.split(' %')[0]
-    
-    try:
-        subprocess.Popen(shlex.split(cleaned_exec))
-    except Exception as e:
-        print(f"Failed to launch '{app.name}': {e}")
+    if platform.system() == "Windows":
+        try:
+            os.startfile(app.exec)
+        except Exception as e:
+            print(f"Failed to launch '{app.name}' with os.startfile: {e}. Trying subprocess.")
+            try:
+                subprocess.Popen([app.exec])
+            except Exception as e2:
+                print(f"Failed to launch '{app.name}' with subprocess: {e2}")
+    else:
+        cleaned_exec = app.exec.split(' %')[0]
+        try:
+            subprocess.Popen(shlex.split(cleaned_exec))
+        except Exception as e:
+            print(f"Failed to launch '{app.name}': {e}")
 
 
 if __name__ == "__main__":
