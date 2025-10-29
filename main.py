@@ -37,7 +37,7 @@ def main():
 
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
-    super_menu = not "--no-super" in sys.argv
+    super_menu = not "--no-super" in sys.argv and not "--no-start" in sys.argv
     noupdate = "--no-update" in sys.argv
 
     if not noupdate:

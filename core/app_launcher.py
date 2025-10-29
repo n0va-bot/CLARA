@@ -9,9 +9,13 @@ import shlex
 if platform.system() == "Windows":
     try:
         from win32com.client import Dispatch
+        import win32api
+        import win32con
     except ImportError:
         print("Windows specific functionality requires 'pywin32'. Please run 'pip install pywin32'.")
         Dispatch = None
+        win32api = None
+        win32con = None
 
 _app_cache: Optional[list['App']] = None
 
@@ -178,16 +182,28 @@ def reload_app_cache() -> list[App]:
 
 def launch(app: App):
     if platform.system() == "Windows":
+        if not win32api or not win32con:
+            print(f"Failed to launch '{app.name}': pywin32 components are missing.")
+            return
+        
         try:
-            command_args = shlex.split(app.exec, posix=False)
+            # Using ShellExecute is more robust for launching various application types on Windows,
+            # as it leverages the Windows shell's own mechanisms. This is particularly helpful for
+            # non-standard executables like PWAs or Microsoft Store apps.
+            command_parts = shlex.split(app.exec, posix=False)
+            target = command_parts[0]
             
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            
-            subprocess.Popen(
-                command_args,
-                creationflags=subprocess.DETACHED_PROCESS,
-                startupinfo=startupinfo
+            # Use subprocess.list2cmdline to correctly re-assemble the arguments string,
+            # preserving quotes around arguments with spaces.
+            arguments = subprocess.list2cmdline(command_parts[1:])
+
+            win32api.ShellExecute(
+                0,                          # Parent window handle (0 for desktop)
+                "open",                     # Operation
+                target,                     # File to execute or open
+                arguments,                  # Parameters
+                "",                       # Working directory (None for default)
+                win32con.SW_SHOWNORMAL      # How to show the window
             )
         except Exception as e:
             print(f"Failed to launch '{app.name}': {e}")

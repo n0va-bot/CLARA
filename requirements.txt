@@ -3,6 +3,5 @@ pynput
 requests
 beautifulsoup4
 GitPython
-discord-rpc
 pywin32 ; sys_platform == 'win32'
 discord-rich-presence
