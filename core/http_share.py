@@ -130,6 +130,19 @@ class FileShareHandler(BaseHTTPRequestHandler):
             background: #fafafa;
         }}
         .clearfix {{ display: block; }}
+        .footer {{
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #eaeaea;
+            text-align: center;
+            font-size: 11px;
+            color: #888;
+        }}
+        .footer a {{
+            color: #555;
+            text-decoration: none;
+        }}
+        .footer a:hover {{ text-decoration: underline; }}
     </style>
 </head>
 <body>
@@ -139,6 +152,9 @@ class FileShareHandler(BaseHTTPRequestHandler):
             <div class="subtitle">Simple file &amp; text sharing — local network</div>
         </div>
         {body_content}
+        <div class="footer">
+            <p>Powered by <a href="https://github.com/n0va-bot/CLARA" target="_blank">CLARA</a>, your friendly desktop assistant.</p>
+        </div>
     </div>
     {initial_data_script}
     <script type="text/javascript">
@@ -251,6 +267,20 @@ class FileShareHandler(BaseHTTPRequestHandler):
     def send_combined_index_page(self):
         has_content = bool(self.shared_text or self.shared_files)
         
+        hostname = socket.gethostname()
+        total_size_info = ""
+        if self.shared_files:
+            total_size_bytes = 0
+            for filepath in self.shared_files:
+                try:
+                    p = Path(filepath)
+                    if p.is_file():
+                        total_size_bytes += p.stat().st_size
+                except (FileNotFoundError, OSError):
+                    pass
+            if total_size_bytes > 0:
+                total_size_info = f'<p><strong>Total Size:</strong><br/><span>{format_size(total_size_bytes)}</span></p>'
+
         main_content = f"""<div class="main clearfix">
     <div class="left-col">
         <div class="section" id="shared-text-container"></div>
@@ -259,8 +289,10 @@ class FileShareHandler(BaseHTTPRequestHandler):
     <div class="right-col">
         <div class="section">
             <h2>Quick Info</h2>
+            <p><strong>Host:</strong><br/><span>{html.escape(hostname)}</span></p>
             <p><strong>URL:</strong><br/><span>{html.escape(f"http://{self._get_local_ip()}:%s/")}</span></p>
-            <p><strong>Status:</strong><br/>Server running</p>
+            {total_size_info}
+            <p><strong>Status:</strong><br/><span>Server running</span></p>
         </div>
     </div>
     <div id="no-content-message" style="display: {'none' if has_content else 'block'};">
