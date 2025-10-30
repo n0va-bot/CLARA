@@ -8,9 +8,9 @@ import shlex
 
 if platform.system() == "Windows":
     try:
-        from win32com.client import Dispatch
-        import win32api
-        import win32con
+        from win32com.client import Dispatch  # type: ignore
+        import win32api  # type: ignore
+        import win32con  # type: ignore
     except ImportError:
         print("Windows specific functionality requires 'pywin32'. Please run 'pip install pywin32'.")
         Dispatch = None
@@ -20,7 +20,7 @@ if platform.system() == "Windows":
 _app_cache: Optional[list['App']] = None
 
 class App:
-    def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False, generic_name: str = "", comment: str = "", command: str = ""):
+    def __init__(self, name: str, exec: str, icon: str = "", hidden: bool = False, generic_name: str = "", comment: str = "", command: str = "", keywords: Optional[List[str]] = None):
         self.name = name
         self.exec = exec
         self.icon = icon
@@ -28,9 +28,10 @@ class App:
         self.generic_name = generic_name
         self.comment = comment
         self.command = command if command else os.path.basename(exec.split(' ')[0])
+        self.keywords = keywords if keywords is not None else []
     
     def __str__(self):
-        return f"App(name={self.name}, exec={self.exec}, command={self.command}, icon={self.icon}, hidden={self.hidden}, generic_name={self.generic_name}, comment={self.comment})"
+        return f"App(name={self.name}, exec={self.exec}, command={self.command}, icon={self.icon}, hidden={self.hidden}, generic_name={self.generic_name}, comment={self.comment}, keywords={self.keywords})"
 
 def get_desktop_dirs_linux():
     dirs = [
@@ -78,6 +79,9 @@ def parse_desktop_file(file_path: Path) -> list[App]:
 
     if main_name and not is_hidden:
         main_exec = main_entry.get('Exec')
+        keywords_str = main_entry.get('Keywords', '')
+        keywords = [k.strip() for k in keywords_str.split(';') if k.strip()]
+
         if main_exec:
             apps.append(App(
                 name=main_name,
@@ -85,7 +89,8 @@ def parse_desktop_file(file_path: Path) -> list[App]:
                 icon=main_entry.get('Icon', ''),
                 hidden=False,
                 generic_name=main_entry.get('GenericName', ''),
-                comment=main_entry.get('Comment', '')
+                comment=main_entry.get('Comment', ''),
+                keywords=keywords
             ))
 
         if 'Actions' in main_entry:
@@ -102,7 +107,8 @@ def parse_desktop_file(file_path: Path) -> list[App]:
                         apps.append(App(
                             name=combined_name,
                             exec=action_exec,
-                            icon=main_entry.get('Icon', '')
+                            icon=main_entry.get('Icon', ''),
+                            keywords=keywords
                         ))
     return apps
 

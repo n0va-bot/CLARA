@@ -102,12 +102,15 @@ class AppLauncherDialog(QtWidgets.QDialog):
             return
         
         text_lower = text.lower()
+        text_for_command = text_lower.replace(' ', '').replace('-', '').replace('_', '')
+
         filtered_apps = [
             app for app in self.apps if 
             text_lower in app.name.lower() or
             (app.generic_name and text_lower in app.generic_name.lower()) or
             (app.comment and text_lower in app.comment.lower()) or
-            (app.command and text_lower in app.command.lower())
+            (app.command and text_for_command in app.command.lower().replace(' ', '').replace('-', '').replace('_', '')) or
+            (app.keywords and any(text_lower in keyword.lower() for keyword in app.keywords))
         ]
         self.populate_list(filtered_apps)
     
