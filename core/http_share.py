@@ -34,6 +34,7 @@ class FileShareHandler(BaseHTTPRequestHandler):
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{html.escape(title)}</title>
     <style type="text/css">
         html, body {{ margin:0; padding:0; }}
@@ -41,13 +42,13 @@ class FileShareHandler(BaseHTTPRequestHandler):
             font-family: Arial, Helvetica, sans-serif;
             background: #f3f4f6;
             color: #222;
-            padding: 20px;
+            padding: 10px;
             line-height: 1.4;
             font-size: 14px;
         }}
         .container {{
-            width: 760px;
-            max-width: 98%;
+            width: 95%;
+            max-width: 760px;
             margin: 0 auto;
             background: #ffffff;
             border: 1px solid #cfcfcf;
@@ -143,6 +144,21 @@ class FileShareHandler(BaseHTTPRequestHandler):
             text-decoration: none;
         }}
         .footer a:hover {{ text-decoration: underline; }}
+
+        /* Responsive styles */
+        @media screen and (max-width: 600px) {{
+            .left-col, .right-col {{
+                width: 100%;
+                float: none;
+                margin-left: 0;
+                min-width: 0;
+            }}
+            .subtitle {{
+                float: none;
+                text-align: left;
+                margin-top: 8px;
+            }}
+        }}
     </style>
 </head>
 <body>
