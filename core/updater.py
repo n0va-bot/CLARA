@@ -11,7 +11,8 @@ def is_update_available():
         repo = Repo(REPO_DIR)
         origin = repo.remotes.origin
         
-        origin.fetch()
+        repo.git.fetch(origin.name, kill_after_timeout=5)
+        
         local_commit = repo.head.commit
         remote_commit = origin.refs[repo.active_branch.name].commit
         
@@ -29,7 +30,7 @@ def update_repository():
         repo = Repo(REPO_DIR)
         origin = repo.remotes.origin
         
-        origin.pull()
+        repo.git.pull(origin.name, kill_after_timeout=60)
         
         return "UPDATED", "CLARA has been updated successfully."
 
