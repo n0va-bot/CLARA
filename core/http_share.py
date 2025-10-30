@@ -37,19 +37,29 @@ class FileShareHandler(BaseHTTPRequestHandler):
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{html.escape(title)}</title>
     <style type="text/css">
-        html, body {{ margin:0; padding:0; }}
+        html {{
+            box-sizing: border-box;
+        }}
+        *, *:before, *:after {{
+            -webkit-box-sizing: inherit;
+            -moz-box-sizing: inherit;
+            box-sizing: inherit;
+        }}
+        html, body {{
+            margin: 0;
+            padding: 0;
+        }}
         body {{
             font-family: Arial, Helvetica, sans-serif;
             background: #f3f4f6;
             color: #222;
-            padding: 10px;
             line-height: 1.4;
             font-size: 14px;
         }}
         .container {{
             width: 95%;
             max-width: 760px;
-            margin: 0 auto;
+            margin: 10px auto;
             background: #ffffff;
             border: 1px solid #cfcfcf;
             padding: 16px;
@@ -122,7 +132,7 @@ class FileShareHandler(BaseHTTPRequestHandler):
         }}
         a.button:hover {{ text-decoration: underline; }}
         textarea.share-text {{
-            width: 98%;
+            width: 100%;
             height: 220px;
             font-family: "Courier New", Courier, monospace;
             font-size: 12px;
