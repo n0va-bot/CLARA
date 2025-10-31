@@ -12,7 +12,7 @@ A WIP desktop assistant for Linux and Windows.
 - File search
 - Web search
 - Updater
-- Super key menu (Doesn't work properly on Windows)
+- Global menu (defaults: `Super` on Linux, `Ctrl+Space` on Windows) (you can disable it in the config)
 - Local network file and text transfer (Dukto protocol)
 - Browser based file and text transfer (HTTP)
 - Discord Rich Presence integration
@@ -20,7 +20,7 @@ A WIP desktop assistant for Linux and Windows.
 
 ## Requirements
 - Python 3
-- X11 Desktop
+- X11 Desktop (Linux only)
 - [`fd`](https://github.com/sharkdp/fd)
 - `git`
 
@@ -32,7 +32,7 @@ A WIP desktop assistant for Linux and Windows.
 4. Launch `main.py`. Available options:
      - `--restart` Add a restart option to the right click menu
      - `--no-quit` Hide the quit option
-     - `--no-super`/`--no-start` Disable the super key menu (recommended on Windows)
      - `--no-update` Don't update automatically on startup
+5. To configure, go to `~/.config/CLARA/config.json` on Linux and `~/AppData/Roaming/CLARA/config.json` on Windows.
 
 If you want to contribute in any way, PRs (and issues) welcome
