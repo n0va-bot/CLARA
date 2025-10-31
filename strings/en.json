@@ -51,6 +51,7 @@
             "share_files_submenu": "File(s)",
             "share_text_submenu": "Text",
             "via_browser": "Via Browser...",
+            "settings": "Settings",
             "check_updates": "Check for updates",
             "restart": "Restart",
             "toggle_visibility": "Hide/Show",
@@ -108,5 +109,18 @@
             "update_failed_title": "Update Failed",
             "update_failed_text": "{message}"
         }
+    },
+    "config_window": {
+        "title": "Settings",
+        "hotkey_label": "Global Hotkey:",
+        "discord_presence_label": "Enable Discord Presence:",
+        "auto_update_label": "Enable Auto-Update:",
+        "http_share_port_label": "HTTP Share Port:",
+        "dukto_udp_port_label": "Dukto UDP Port:",
+        "dukto_tcp_port_label": "Dukto TCP Port:",
+        "search_engine_label": "Web Search Engine:",
+        "restart_note": "Note: Some changes (like ports or hotkey) may require a restart to take effect.",
+        "reset_title": "Confirm Reset",
+        "reset_text": "Are you sure you want to reset all settings to their default values?"
     }
 }

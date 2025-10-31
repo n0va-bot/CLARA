@@ -51,6 +51,7 @@
             "share_files_submenu": "File(s)",
             "share_text_submenu": "Message",
             "via_browser": "Via Browser...",
+            "settings": "Preferences",
             "check_updates": "Check for Updates",
             "restart": "Restart",
             "toggle_visibility": "Hide/Show",
@@ -108,5 +109,18 @@
             "update_failed_title": "Update Failed",
             "update_failed_text": "{message}"
         }
+    },
+    "config_window": {
+        "title": "Preferences",
+        "hotkey_label": "Global Hotkey:",
+        "discord_presence_label": "Show CLARA on your Discord status:",
+        "auto_update_label": "Update Automatically:",
+        "http_share_port_label": "Browser Sharing Port:",
+        "dukto_udp_port_label": "Dukto Discovery Port (UDP):",
+        "dukto_tcp_port_label": "Dukto Transfer Port (TCP):",
+        "search_engine_label": "Search Engine:",
+        "restart_note": "Just a heads-up: some changes (like ports or the hotkey) will need a restart to work.",
+        "reset_title": "Reset Settings?",
+        "reset_text": "Are you sure you want to go back to the default settings?"
     }
 }

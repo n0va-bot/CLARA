@@ -17,6 +17,7 @@ from windows.file_search import FileSearchResults
 from windows.web_results import WebSearchResults
 from windows.text_viewer import TextViewerDialog
 from windows.calculator import CalculatorDialog
+from windows.config_window import ConfigWindow
 
 ASSET = Path(__file__).parent.parent / "assets" / "2ktan.png"
 
@@ -146,6 +147,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.share_text_submenu_right = share_menu_right.addMenu(s["share_text_submenu"])
         self.stop_share_action_right = share_menu_right.addAction("Stop Browser Share", self.stop_browser_share)
         right_menu.addSeparator()
+        right_menu.addAction(s.get("settings", "Settings"), self.start_config_window)
         right_menu.addAction(s["check_updates"], self.update_git)
         
         if self.restart:
@@ -492,6 +494,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.calculator_dialog = CalculatorDialog(self.strings, self)
         self.calculator_dialog.move(QtGui.QCursor.pos())
         self.calculator_dialog.show()
+
+    def start_config_window(self):
+        self.config_dialog = ConfigWindow(self.strings, self.config, self)
+        self.config_dialog.show()
 
     def start_file_search(self):
         s = self.strings["file_search"]
