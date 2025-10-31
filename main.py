@@ -38,7 +38,6 @@ def main():
 
     restart = "--restart" in sys.argv
     no_quit = "--no-quit" in sys.argv
-    super_menu = not "--no-super" in sys.argv and not "--no-start" in sys.argv
     noupdate = "--no-update" in sys.argv
 
     if not noupdate and config.get("auto_update", True):
@@ -62,7 +61,6 @@ def main():
         config=config,
         restart=restart, 
         no_quit=no_quit, 
-        super_menu=super_menu
     )
     
     if config.get("discord_presence", True):

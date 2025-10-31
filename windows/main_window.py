@@ -39,12 +39,15 @@ class MainWindow(QtWidgets.QMainWindow):
     http_download_signal = QtCore.Signal(str, str)
 
 
-    def __init__(self, dukto_handler, strings, config: Config, restart=False, no_quit=False, super_menu=True):
+    def __init__(self, dukto_handler, strings, config: Config, restart=False, no_quit=False):
         super().__init__()
         
         self.strings = strings
         self.config = config
         self.listener = None
+
+        self.restart = restart
+        self.no_quit = no_quit
 
         flags = (
             QtCore.Qt.FramelessWindowHint                              #type: ignore
@@ -67,7 +70,6 @@ class MainWindow(QtWidgets.QMainWindow):
         mask = QtGui.QBitmap.fromImage(mask_img)
         self.setMask(mask)
 
-        self.super_menu = super_menu
         self.dukto_handler = dukto_handler
         self.progress_dialog = None
         
@@ -113,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Super key
         self.show_menu_signal.connect(self.show_menu)
-        if self.super_menu:
+        if config.get("hotkey") != None and config.get("hotkey") != "none" and config.get("hotkey") != "":
             self.start_hotkey_listener()
 
     def build_menus(self):
@@ -146,11 +148,11 @@ class MainWindow(QtWidgets.QMainWindow):
         right_menu.addSeparator()
         right_menu.addAction(s["check_updates"], self.update_git)
         
-        if "--restart" in sys.argv:
+        if self.restart:
             right_menu.addAction(s["restart"], self.restart_application)
         right_menu.addAction(s["toggle_visibility"], self.toggle_visible)
         right_menu.addSeparator()
-        if "--no-quit" not in sys.argv:
+        if self.no_quit:
             right_menu.addAction(s["quit"], QtWidgets.QApplication.quit)
         
         self.tray.setContextMenu(right_menu)
