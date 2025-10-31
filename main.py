@@ -8,6 +8,7 @@ from core.discord_presence import presence
 from core.dukto import DuktoProtocol
 from core.updater import update_repository, is_update_available
 from core.app_launcher import list_apps
+from core.config import config
 
 from windows.main_window import MainWindow
 
@@ -40,7 +41,7 @@ def main():
     super_menu = not "--no-super" in sys.argv and not "--no-start" in sys.argv
     noupdate = "--no-update" in sys.argv
 
-    if not noupdate:
+    if not noupdate and config.get("auto_update", True):
         update_available = is_update_available()
         if update_available:
             update_repository()
@@ -50,10 +51,22 @@ def main():
     preload_thread.start()
             
     dukto_handler = DuktoProtocol()
+    dukto_handler.set_ports(
+        udp_port=config.get("dukto_udp_port", 4644),
+        tcp_port=config.get("dukto_tcp_port", 4644)
+    )
     
-    pet = MainWindow(dukto_handler=dukto_handler, strings=strings, restart=restart, no_quit=no_quit, super_menu=super_menu)
+    pet = MainWindow(
+        dukto_handler=dukto_handler, 
+        strings=strings, 
+        config=config,
+        restart=restart, 
+        no_quit=no_quit, 
+        super_menu=super_menu
+    )
     
-    presence.start()
+    if config.get("discord_presence", True):
+        presence.start()
     
     dukto_handler.initialize()
     dukto_handler.say_hello()

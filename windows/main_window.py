@@ -10,6 +10,7 @@ from core.dukto import Peer
 from core.file_search import find
 from core.web_search import MullvadLetaWrapper
 from core.http_share import FileShareServer
+from core.config import Config
 
 from windows.app_launcher import AppLauncherDialog
 from windows.file_search import FileSearchResults
@@ -38,10 +39,12 @@ class MainWindow(QtWidgets.QMainWindow):
     http_download_signal = QtCore.Signal(str, str)
 
 
-    def __init__(self, dukto_handler, strings, restart=False, no_quit=False, super_menu=True):
+    def __init__(self, dukto_handler, strings, config: Config, restart=False, no_quit=False, super_menu=True):
         super().__init__()
         
         self.strings = strings
+        self.config = config
+        self.listener = None
 
         flags = (
             QtCore.Qt.FramelessWindowHint                              #type: ignore
@@ -69,7 +72,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_dialog = None
         
         # HTTP file sharing
-        self.http_share = FileShareServer(port=8080)
+        http_port = self.config.get("http_share_port", 8080)
+        self.http_share = FileShareServer(port=http_port)
         self.http_share.on_download = lambda filename, ip: self.http_download_signal.emit(filename, ip)
 
         # Connect Dukto callbacks to emit signals
@@ -109,7 +113,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Super key
         self.show_menu_signal.connect(self.show_menu)
-        self.start_hotkey_listener()
+        if self.super_menu:
+            self.start_hotkey_listener()
 
     def build_menus(self):
         s = self.strings["main_window"]["right_menu"]
@@ -200,17 +205,40 @@ class MainWindow(QtWidgets.QMainWindow):
     def show_menu(self):
         self.left_menu.popup(QtGui.QCursor.pos())
 
-    def on_press(self, key):
-        if self.super_menu:
-            if key == keyboard.Key.cmd:
-                self.show_menu_signal.emit()
-
     def start_hotkey_listener(self):
-        self.listener = keyboard.Listener(on_press=self.on_press)
-        self.listener.start()
+        hotkey_str = self.config.get("hotkey", "super")
+
+        def on_activate():
+            self.show_menu_signal.emit()
+
+        key_map = {
+            "super": "cmd",
+            "ctrl": "ctrl",
+            "space": "space",
+        }
+
+        try:
+            keys = [key_map.get(k.strip().lower(), k.strip().lower()) for k in hotkey_str.split('+')]
+            formatted_hotkey = '<' + '>+<'.join(keys) + '>' #type: ignore
+            
+            hotkey = keyboard.HotKey(
+                keyboard.HotKey.parse(formatted_hotkey),
+                on_activate
+            )
+            
+            self.listener = keyboard.Listener(
+                on_press=hotkey.press,    #type: ignore
+                on_release=hotkey.release #type: ignore
+            )
+            self.listener.start()
+
+        except Exception as e:
+            print(f"Failed to set hotkey '{hotkey_str}': {e}. Hotkey will be disabled.")
+            self.listener = None
 
     def closeEvent(self, event):
-        self.listener.stop()
+        if self.listener:
+            self.listener.stop()
         if self.http_share.is_running():
             self.http_share.stop()
         super().closeEvent(event)
@@ -518,7 +546,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if ok and query:
             try:
                 QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor) #type: ignore
-                leta = MullvadLetaWrapper(engine="brave")
+                search_engine = self.config.get("search_engine", "brave")
+                leta = MullvadLetaWrapper(engine=search_engine)
                 results = leta.search(query)
                 
                 if results and results.get('results'):

@@ -1,5 +1,6 @@
 files = [
     "core/app_launcher.py",
+    "core/config.py",
     "core/discord_presence.py",
     "core/dukto.py",
     "core/file_search.py",

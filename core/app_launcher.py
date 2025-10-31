@@ -193,14 +193,9 @@ def launch(app: App):
             return
         
         try:
-            # Using ShellExecute is more robust for launching various application types on Windows,
-            # as it leverages the Windows shell's own mechanisms. This is particularly helpful for
-            # non-standard executables like PWAs or Microsoft Store apps.
             command_parts = shlex.split(app.exec, posix=False)
             target = command_parts[0]
             
-            # Use subprocess.list2cmdline to correctly re-assemble the arguments string,
-            # preserving quotes around arguments with spaces.
             arguments = subprocess.list2cmdline(command_parts[1:])
 
             win32api.ShellExecute(
