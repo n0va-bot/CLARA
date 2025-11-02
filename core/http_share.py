@@ -41,8 +41,47 @@ class FileShareHandler(BaseHTTPRequestHandler):
                 raise RuntimeError(f"HTML template not found at {template_path}")
         return cls.html_template
     
+    def _generate_shared_text_html(self, text: str) -> str:
+        if not text:
+            return ""
+        
+        escaped_text = html.escape(text)
+        return f'''<h2>Shared Text</h2>
+<p>Select the text below and copy it to your clipboard.</p>
+<textarea class="share-text" readonly="readonly">{escaped_text}</textarea>'''
+    
+    def _generate_shared_files_html(self, files: List[str]) -> str:
+        """Generate HTML for shared files section."""
+        if not files:
+            return ""
+        
+        rows = ""
+        for i, filepath in enumerate(files):
+            try:
+                path = Path(filepath)
+                if path.exists() and path.is_file():
+                    name = html.escape(path.name)
+                    size = format_size(path.stat().st_size)
+                    rows += f'''<tr>
+    <td>{name}</td>
+    <td>{size}</td>
+    <td><a class="button" href="/download/{i}">Download</a></td>
+</tr>'''
+            except Exception:
+                continue
+        
+        if not rows:
+            return ""
+        
+        return f'''<h2>Shared Files</h2>
+<p>Click a button to download the corresponding file.</p>
+<table class="file-list" cellpadding="0" cellspacing="0">
+    <tr><th>Filename</th><th>Size</th><th>Action</th></tr>
+    {rows}
+</table>'''
+    
     def _get_base_html(self, hostname: str, url: str, total_size_info: str, 
-                       no_content_display: str, initial_data_json: str) -> str:
+                       no_content_display: str, shared_text_html: str, shared_files_html: str) -> str:
         template = self.load_html_template()
         
         replacements = {
@@ -51,7 +90,8 @@ class FileShareHandler(BaseHTTPRequestHandler):
             '{{URL}}': html.escape(url),
             '{{TOTAL_SIZE_INFO}}': total_size_info,
             '{{NO_CONTENT_DISPLAY}}': no_content_display,
-            '{{INITIAL_DATA_JSON}}': initial_data_json
+            '{{SHARED_TEXT_HTML}}': shared_text_html,
+            '{{SHARED_FILES_HTML}}': shared_files_html
         }
         
         result = template
@@ -106,19 +146,20 @@ class FileShareHandler(BaseHTTPRequestHandler):
             if total_size_bytes > 0:
                 total_size_info = format_size(total_size_bytes)
 
-        initial_data_dict = self._get_api_data_dict()
-        json_string = json.dumps(initial_data_dict)
-        initial_data_json = json.dumps(json_string)
-        
         url = f"http://{self._get_local_ip()}:{self.server.server_address[1]}/" #type: ignore
         no_content_display = 'none' if has_content else 'block'
+        
+        # Generate HTML server-side
+        shared_text_html = self._generate_shared_text_html(self.shared_text or "")
+        shared_files_html = self._generate_shared_files_html(self.shared_files)
 
         html_content = self._get_base_html(
             hostname=hostname,
             url=url,
             total_size_info=total_size_info,
             no_content_display=no_content_display,
-            initial_data_json=initial_data_json
+            shared_text_html=shared_text_html,
+            shared_files_html=shared_files_html
         ).encode('utf-8')
         
         self.send_response(200)
@@ -245,6 +286,8 @@ class FileShareServer:
         for f in files:
             if f not in current_files:
                 self.shared_files.append(f)
+        
+        FileShareHandler.shared_files = self.shared_files
 
     def share_text(self, text: str) -> str:
         self.shared_text = text

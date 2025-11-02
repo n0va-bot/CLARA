@@ -147,8 +147,12 @@
         </div>
         <div class="main clearfix">
             <div class="left-col">
-                <div class="section" id="shared-text-container"></div>
-                <div class="section" id="shared-files-container"></div>
+                <div class="section" id="shared-text-container">
+                    {{SHARED_TEXT_HTML}}
+                </div>
+                <div class="section" id="shared-files-container">
+                    {{SHARED_FILES_HTML}}
+                </div>
             </div>
             <div class="right-col">
                 <div class="section">
@@ -167,7 +171,6 @@
             <p>Powered by <a href="https://github.com/n0va-bot/CLARA" target="_blank">CLARA</a>, your friendly desktop assistant.</p>
         </div>
     </div>
-    <script type="text/javascript">var initialDataJSON = {{INITIAL_DATA_JSON}};</script>
     <script type="text/javascript">
         (function() {
             var lastData = '';
@@ -232,14 +235,7 @@
                 xhr.send(null);
             }
 
-            if (typeof initialDataJSON !== 'undefined' && initialDataJSON) {
-                lastData = initialDataJSON;
-                try {
-                    var initialData = JSON.parse(initialDataJSON);
-                    updateContent(initialData);
-                } catch (e) {}
-            }
-
+            // Refresh data every 5 seconds
             setInterval(fetchData, 5000);
         })();
     </script>
