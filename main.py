@@ -69,12 +69,7 @@ def main():
     dukto_handler.initialize()
     dukto_handler.say_hello()
     
-    # bottom right corner
-    screen_geometry = app.primaryScreen().availableGeometry()
-    pet_geometry = pet.frameGeometry()
-    x = screen_geometry.width() - pet_geometry.width()
-    y = screen_geometry.height() - pet_geometry.height()
-    pet.move(x, y)
+    pet.position_bottom_right()
 
     pet.show()
 

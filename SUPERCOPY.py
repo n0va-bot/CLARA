@@ -7,6 +7,7 @@ files = [
     "core/headers.py",
     "core/http_share.py",
     "core/updater.py",
+    "core/wayland_utils.py",
     "core/web_search.py",
     "strings/en.json",
     "strings/personality_en.json",
