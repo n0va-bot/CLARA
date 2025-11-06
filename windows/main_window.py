@@ -154,7 +154,7 @@ class MainWindow(QtWidgets.QMainWindow):
             right_menu.addAction(s["restart"], self.restart_application)
         right_menu.addAction(s["toggle_visibility"], self.toggle_visible)
         right_menu.addSeparator()
-        if self.no_quit:
+        if not self.no_quit:
             right_menu.addAction(s["quit"], QtWidgets.QApplication.quit)
         
         self.tray.setContextMenu(right_menu)
@@ -213,7 +213,8 @@ class MainWindow(QtWidgets.QMainWindow):
         hotkey_str = self.config.get("hotkey", "super")
 
         def on_activate():
-            self.show_menu_signal.emit()
+            if self.isVisible():
+                self.show_menu_signal.emit()
 
         key_map = {
             "super": "cmd",
