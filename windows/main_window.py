@@ -11,7 +11,6 @@ from core.file_search import find
 from core.web_search import MullvadLetaWrapper
 from core.http_share import FileShareServer
 from core.config import Config
-from core.wayland_utils import is_wayland, get_screen_info
 
 from windows.app_launcher import AppLauncherDialog
 from windows.file_search import FileSearchResults
@@ -47,35 +46,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.strings = strings
         self.config = config
         self.listener = None
-        self.is_wayland = is_wayland()
 
         self.restart = restart
         self.no_quit = no_quit
 
-        # Configure window flags based on display server
-        if self.is_wayland:
-            # Wayland-compatible flags
-            flags = (
-                QtCore.Qt.FramelessWindowHint                          #type: ignore
-                | QtCore.Qt.WindowStaysOnTopHint                       #type: ignore
-                | QtCore.Qt.Tool                                       #type: ignore
-            )
-        else:
-            # X11 flags
-            flags = (
-                QtCore.Qt.FramelessWindowHint                          #type: ignore
-                | QtCore.Qt.WindowStaysOnTopHint                       #type: ignore
-                | QtCore.Qt.Tool                                       #type: ignore
-                | QtCore.Qt.WindowDoesNotAcceptFocus                   #type: ignore
-            )
+        flags = (
+            QtCore.Qt.FramelessWindowHint                              #type: ignore
+            | QtCore.Qt.WindowStaysOnTopHint                           #type: ignore
+            | QtCore.Qt.Tool                                           #type: ignore
+            | QtCore.Qt.WindowDoesNotAcceptFocus                       #type: ignore
+        )
 
         self.setWindowFlags(flags)         
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)          #type: ignore
-        
-        # On Wayland, set additional window properties to prevent Alt+Tab
-        if self.is_wayland:
-            self.setAttribute(QtCore.Qt.WA_X11NetWmWindowTypeUtility)  #type: ignore
-        
         pix = QtGui.QPixmap(str(ASSET))
 
         self.label = QtWidgets.QLabel(self)
@@ -135,22 +118,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_menu_signal.connect(self.show_menu)
         if config.get("hotkey") != None and config.get("hotkey") != "none" and config.get("hotkey") != "":
             self.start_hotkey_listener()
-
-    def position_bottom_right(self):
-        """Position window at bottom right corner."""
-        if self.is_wayland:
-            # On Wayland, get screen info and position window
-            screen_w, screen_h = get_screen_info()
-            x = screen_w - self.width()
-            y = screen_h - self.height()
-            self.move(x, y)
-        else:
-            # On X11, use Qt's screen geometry
-            screen_geometry = QtWidgets.QApplication.primaryScreen().availableGeometry()
-            pet_geometry = self.frameGeometry()
-            x = screen_geometry.width() - pet_geometry.width()
-            y = screen_geometry.height() - pet_geometry.height()
-            self.move(x, y)
 
     def build_menus(self):
         s = self.strings["main_window"]["right_menu"]
@@ -284,15 +251,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def ensure_on_top(self):
         if self.isVisible() and not self.left_menu.isVisible() and not self.tray.contextMenu().isVisible():
             self.raise_()
-            # Re-apply window flags to ensure staying on top on Wayland
-            if self.is_wayland:
-                self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint, True) #type: ignore
 
     def showEvent(self, event):
         super().showEvent(event)
         self.raise_()
-        # Ensure bottom right positioning
-        QtCore.QTimer.singleShot(100, self.position_bottom_right)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
         if event.button() == QtCore.Qt.LeftButton:                      #type: ignore

@@ -9,6 +9,6 @@ __pycache__/
 *.pyc.*
 *.pyo.*
 
-# SUPERCOPY
+SUPERCOPY.py
 copy.md
 .vscode
