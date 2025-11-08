@@ -59,18 +59,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setWindowFlags(flags)         
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)          #type: ignore
+        
+        # Load the image
         pix = QtGui.QPixmap(str(ASSET))
+        self.image_size = pix.size()
 
+        # Create a label for the image
         self.label = QtWidgets.QLabel(self)
         self.label.setPixmap(pix)
         self.label.resize(pix.size())
-        self.resize(pix.size())
-
-        img = pix.toImage()
-        mask_img = img.createAlphaMask()
-        mask = QtGui.QBitmap.fromImage(mask_img)
-        self.setMask(mask)
-
+        
+        # Install event filter on the image to handle clicks
+        self.label.installEventFilter(self)
+        
         self.dukto_handler = dukto_handler
         self.progress_dialog = None
         
@@ -118,6 +119,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_menu_signal.connect(self.show_menu)
         if config.get("hotkey") != None and config.get("hotkey") != "none" and config.get("hotkey") != "":
             self.start_hotkey_listener()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        screen = QtWidgets.QApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        self.setGeometry(screen_geometry)
+        
+        # Position the image bottom right
+        label_x = screen_geometry.width() - self.image_size.width()
+        label_y = screen_geometry.height() - self.image_size.height()
+        self.label.move(label_x, label_y)
+        
+        # Create a mask for the window based on the image position
+        self.update_mask()
+        
+        self.raise_()
+    
+    def update_mask(self):
+        # Create a mask that only includes the image area
+        mask = QtGui.QRegion(0, 0, 0, 0)  # Empty (duh, it says 0)
+        
+        # Add the image region
+        image_rect = self.label.geometry()
+        
+        pixmap = self.label.pixmap()
+        if pixmap and not pixmap.isNull():
+            img = pixmap.toImage()
+            alpha_mask = img.createAlphaMask()
+            bitmap_mask = QtGui.QBitmap.fromImage(alpha_mask)
+            
+            image_region = QtGui.QRegion(bitmap_mask)
+            image_region.translate(image_rect.x(), image_rect.y())
+            mask = mask.united(image_region)
+        
+        self.setMask(mask)
 
     def build_menus(self):
         s = self.strings["main_window"]["right_menu"]
@@ -251,16 +287,21 @@ class MainWindow(QtWidgets.QMainWindow):
     def ensure_on_top(self):
         if self.isVisible() and not self.left_menu.isVisible() and not self.tray.contextMenu().isVisible():
             self.raise_()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        self.raise_()
+    
+    def eventFilter(self, obj, event):                                              #type: ignore
+        # Handle mouse events on the image
+        if obj == self.label:
+            if event.type() == QtCore.QEvent.MouseButtonPress:                      #type: ignore
+                if event.button() == QtCore.Qt.LeftButton:                          #type: ignore
+                    self.left_menu.popup(event.globalPosition().toPoint())
+                    return True
+                elif event.button() == QtCore.Qt.RightButton:                       #type: ignore
+                    self.tray.contextMenu().popup(event.globalPosition().toPoint())
+                    return True
+        return super().eventFilter(obj, event)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent):
-        if event.button() == QtCore.Qt.LeftButton:                      #type: ignore
-            self.left_menu.popup(event.globalPosition().toPoint())
-        elif event.button() == QtCore.Qt.RightButton:                   #type: ignore
-            self.tray.contextMenu().popup(event.globalPosition().toPoint())
+        pass
 
     def handle_tray_activated(self, reason):
         if reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger:
