@@ -20,7 +20,6 @@ A WIP desktop assistant for Linux and Windows.
 
 ## Requirements
 - Python 3
-- X11 Desktop (Linux only)
 - [`fd`](https://github.com/sharkdp/fd)
 - `git`
 
@@ -33,6 +32,8 @@ A WIP desktop assistant for Linux and Windows.
      - `--restart` Add a restart option to the right click menu
      - `--no-quit` Hide the quit option
      - `--no-update` Don't update automatically on startup
-5. To configure, go to `~/.config/CLARA/config.json` on Linux and `~/AppData/Roaming/CLARA/config.json` on Windows.
+
+     > [!IMPORTANT]
+     > If on Wayland, make sure to add `QT_QPA_PLATFORM=xcb` at the beginning of the command
 
 If you want to contribute in any way, PRs (and issues) welcome
