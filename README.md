@@ -33,7 +33,7 @@ A WIP desktop assistant for Linux and Windows.
      - `--no-quit` Hide the quit option
      - `--no-update` Don't update automatically on startup
 
-     > [!IMPORTANT]
-     > If on Wayland, make sure to add `QT_QPA_PLATFORM=xcb` at the beginning of the command
+> [!IMPORTANT]
+> If on Wayland, make sure to add `QT_QPA_PLATFORM=xcb` at the beginning of the command
 
 If you want to contribute in any way, PRs (and issues) welcome
